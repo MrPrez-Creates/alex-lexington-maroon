@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Moodboard-inspired Glassmorphism */
+.glass-panel {
+  background: rgba(13, 42, 77, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Moodboard Card Effect */
+.holo-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(189, 154, 95, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Moodboard Gold Gradient Text */
+.text-gradient-gold {
+  background: linear-gradient(to right, #BD9A5F, #D4B77A, #BD9A5F);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+  animation: shine 5s linear infinite;
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Moodboard Button Styles */
+.btn-primary-gold {
+  background: linear-gradient(135deg, #BD9A5F 0%, #D4B77A 100%);
+  color: #0A2240;
+  box-shadow: 0 8px 24px rgba(189, 154, 95, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-primary-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(189, 154, 95, 0.4);
+}
+
+.btn-secondary-gold {
+  background: transparent;
+  border: 1px solid #BD9A5F;
+  color: #BD9A5F;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary-gold:hover {
+  background: rgba(189, 154, 95, 0.1);
+}
+
+/* Moodboard Subscription Badge */
+.subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(189, 154, 95, 0.1);
+  border-radius: 20px;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #BD9A5F;
+}
+
+/* Moodboard Gold Glow Effect */
+.gold-glow {
+  box-shadow: 0 20px 60px rgba(189, 154, 95, 0.3);
+}
+
+/* Moodboard Radial Glow Background */
+.bg-radial-glow::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(189, 154, 95, 0.15) 0%, transparent 50%);
+  pointer-events: none;
+}
