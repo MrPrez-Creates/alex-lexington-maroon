@@ -1,0 +1,8 @@
+{
+  "name": "Maroon",
+  "description": "A minimalist bullion tracker for Gold, Silver, and Platinum assets with AI invoice scanning. Pricing is accurate. ",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
