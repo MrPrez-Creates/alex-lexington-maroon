@@ -1,7 +1,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { PaymentMethod, UserProfile } from '../types';
-import { addPaymentMethod, deletePaymentMethod } from '../services/firestoreService';
+// Payment methods managed locally (mock - real Plaid integration handles bank accounts)
+const addPaymentMethod = async (_method: PaymentMethod) => { /* no-op for now */ };
+const deletePaymentMethod = async (_id: string) => { /* no-op for now */ };
 
 interface PaymentMethodsProps {
   userProfile: UserProfile | null;

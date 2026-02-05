@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { loginWithEmail, registerWithEmail, loginWithGoogle, requestPhoneCode, verifyPhoneCode, sendPasswordReset } from '../services/firestoreService';
+import { loginWithEmail, registerWithEmail, loginWithGoogle, requestPhoneCode, verifyPhoneCode, sendPasswordReset } from '../services/authService';
 
 interface AuthModalProps {
   isOpen: boolean;

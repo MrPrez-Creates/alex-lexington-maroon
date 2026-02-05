@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { SupportTicket, TicketStatus } from '../types';
-import { subscribeToSupportTickets, updateTicketStatus } from '../services/firestoreService';
+import { subscribeToSupportTickets, updateTicketStatus } from '../services/supportService';
 
 const AdminSupport: React.FC = () => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);

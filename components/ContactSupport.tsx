@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { createSupportTicket } from '../services/firestoreService';
+import { createSupportTicket } from '../services/supportService';
 
 interface ContactSupportProps {
   userProfile: UserProfile | null;

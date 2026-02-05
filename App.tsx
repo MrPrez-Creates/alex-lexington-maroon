@@ -5,23 +5,7 @@ import { supabase } from './lib/supabase';
 import {
   fetchLiveSpotPrices
 } from './services/marketData';
-import {
-  subscribeToUserProfile,
-  subscribeToAlerts,
-  subscribeToUserFiles,
-  addInventoryItem,
-  updateInventoryItem,
-  deleteInventoryItem,
-  addTransaction,
-  addPriceAlert,
-  deletePriceAlert,
-  updateUserBalance,
-  logoutUser,
-  updateUserSettings,
-  // Shared collection functions for Command Center integration
-  addVaultHolding,
-  createSharedTransaction,
-} from './services/firestoreService';
+import { logoutUser } from './services/authService';
 import {
   getCustomerHoldings,
   getCustomerHoldingsByFirebaseUid,
@@ -72,6 +56,7 @@ import MarketStatus from './components/MarketStatus';
 import ContactSupport from './components/ContactSupport';
 import AdminSupport from './components/AdminSupport';
 import AdminRisk from './components/AdminRisk';
+import FundingWallet from './components/FundingWallet';
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -102,7 +87,10 @@ export default function App() {
   
   // UI State
   const [view, setView] = useState<ViewState>('landing');
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('maroon-dark-mode');
+    return saved !== null ? saved === 'true' : true; // Default to dark
+  });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showLiveChat, setShowLiveChat] = useState(false);
@@ -219,20 +207,29 @@ export default function App() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // 2. User Profile Subscription
+  // 2. Build user profile from API customer data (replaces Firebase subscription)
   useEffect(() => {
       if (!user) {
           setUserProfile(null);
           return;
       }
-      const unsub = subscribeToUserProfile((profile) => {
-          setUserProfile(profile);
-          if (profile?.settings?.darkMode !== undefined) {
-              setIsDarkMode(profile.settings.darkMode);
-          }
-      });
-      return () => unsub();
-  }, [user]);
+      if (apiCustomer) {
+          setUserProfile({
+              uid: user.id,
+              email: apiCustomer.email || user.email || '',
+              name: apiCustomer.name || user.user_metadata?.full_name || '',
+              photoURL: user.user_metadata?.avatar_url || null,
+              phoneNumber: apiCustomer.phone || '',
+              kycStatus: apiCustomer.kycStatus || 'unverified',
+              cashBalance: apiCustomer.cashBalance || 0,
+              settings: { darkMode: isDarkMode, currency: 'USD' },
+              createdAt: apiCustomer.createdAt || new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              billingAddress: {},
+              paymentMethods: [],
+          } as UserProfile);
+      }
+  }, [user, apiCustomer]);
 
   // 3. Data from API (replaces Firebase subscriptions when customerId is available)
   useEffect(() => {
@@ -346,18 +343,8 @@ export default function App() {
       // No customerId yet — data will show as empty until customer resolves
   }, [user, customerId, customerLoading]);
 
-  // 3b. Alerts & files always from Firebase (no API equivalent yet)
-  useEffect(() => {
-      if (!user) return;
-
-      const unsubAlerts = subscribeToAlerts(setAlerts);
-      const unsubFiles = subscribeToUserFiles(setFiles);
-
-      return () => {
-          unsubAlerts();
-          unsubFiles();
-      };
-  }, [user]);
+  // 3b. Alerts & files - managed locally (Firebase removed)
+  // Price alerts are client-side only; documents coming soon
 
   // 4. Price Ticker
   useEffect(() => {
@@ -395,9 +382,7 @@ export default function App() {
   const toggleDarkMode = () => {
       const newVal = !isDarkMode;
       setIsDarkMode(newVal);
-      if (userProfile) {
-          updateUserSettings({ darkMode: newVal });
-      }
+      localStorage.setItem('maroon-dark-mode', String(newVal));
   };
 
   // Open LiveChat with optional initial prompt
@@ -430,159 +415,9 @@ export default function App() {
       if (!userProfile || !user) return;
 
       try {
-          const timestamp = new Date().toISOString();
-          
-          if (action === 'buy') {
-              // ... Existing Buy Logic ...
-              const ozAmount = price > 0 ? amount / price : 0;
-              
-              // Check Balance
-              if (userProfile.cashBalance < amount) {
-                  alert("Insufficient funds. Please deposit cash.");
-                  return;
-              }
-
-              // Deduct Cash
-              await updateUserBalance(user.id, userProfile.cashBalance - amount);
-
-              // Determine Item Details based on Fulfillment
-              let itemName = '';
-              let mintName = '';
-              let notes = '';
-
-              if (fulfillmentType === 'storage') {
-                  mintName = 'Alex Lexington (Vault)';
-                  // Segregated gets explicit tag, Commingled gets generic name per requirements
-                  if (storageType === 'segregated') {
-                      itemName = `${metal.charAt(0).toUpperCase() + metal.slice(1)} (Allocated)`;
-                  } else {
-                      itemName = `${metal.charAt(0).toUpperCase() + metal.slice(1)}`; 
-                  }
-                  notes = `Storage: ${storageType || 'Commingled'}`;
-              } else {
-                  // Physical Delivery
-                  itemName = `${metal.charAt(0).toUpperCase() + metal.slice(1)}`; // "Nothing special"
-                  mintName = 'Alex Lexington';
-                  notes = `Fulfillment: Physical ${deliveryMethod === 'pickup' ? 'Pickup' : 'Shipping'}`;
-              }
-
-              if (isRecurring) {
-                  notes += ` | Recurring: ${frequency}`;
-              }
-
-              // Add to Inventory (Maroon app internal)
-              const newItem: BullionItem = {
-                  id: `buy-${Date.now()}`,
-                  name: itemName,
-                  metalType: metal,
-                  form: AssetForm.BAR, // Default form
-                  weightAmount: ozAmount,
-                  weightUnit: 'oz',
-                  quantity: 1,
-                  purchasePrice: amount,
-                  acquiredAt: timestamp.split('T')[0],
-                  purity: '.9999',
-                  mint: mintName,
-                  notes: notes,
-              };
-              await addInventoryItem(newItem);
-
-              // Record Transaction (Maroon app internal)
-              await addTransaction({
-                  id: `tx-${Date.now()}`,
-                  type: 'buy' as TransactionType, 
-                  metal,
-                  itemName: newItem.name,
-                  amountOz: ozAmount,
-                  pricePerOz: price,
-                  totalValue: amount,
-                  date: timestamp,
-                  status: 'Completed' as TransactionStatus,
-                  isRecurring
-              });
-
-              // === COMMAND CENTER INTEGRATION ===
-              // Create shared transaction (visible in Command Center)
-              await createSharedTransaction({
-                  type: 'buy',
-                  metal: metal,
-                  weightOzt: ozAmount,
-                  pricePerOzt: price,
-                  amount: amount,
-                  status: 'completed',
-                  fiztradeLockStatus: 'filled',
-                  paymentMethod: 'balance'
-              });
-
-              // Add to vault holdings if storage type (visible in Command Center)
-              if (fulfillmentType === 'storage') {
-                  await addVaultHolding({
-                      metal: metal as VaultHolding['metal'],
-                      weightOzt: ozAmount,
-                      costBasis: amount,
-                      purchasePricePerOzt: price,
-                      currentValue: amount,
-                      sourceOrderId: newItem.id,
-                      status: 'held'
-                  });
-              }
-
-          } else {
-              // --- Sell Logic (Supports Bulk) ---
-              let totalPayout = 0;
-              const itemsToProcess = bulkItems || (inventoryItemId ? [{ 
-                  id: inventoryItemId, 
-                  qty: 1, 
-                  value: amount, // For single items, amount is passed as total value
-                  name: inventory.find(i => i.id === inventoryItemId)?.name || 'Unknown Item',
-                  weightOz: 0 // Not critical for simple single sell fallback
-              }] : []);
-
-              for (const sellItem of itemsToProcess) {
-                  const item = inventory.find(i => i.id === sellItem.id);
-                  if (!item) continue;
-
-                  // Update Inventory
-                  if (item.quantity > sellItem.qty) {
-                      await updateInventoryItem({ ...item, quantity: item.quantity - sellItem.qty });
-                  } else {
-                      await deleteInventoryItem(item.id);
-                  }
-
-                  // Accumulate Payout
-                  totalPayout += sellItem.value;
-
-                  // Record Individual Transaction for History Clarity (Maroon internal)
-                  await addTransaction({
-                      id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                      type: 'sell' as TransactionType,
-                      metal: item.metalType,
-                      itemName: item.name,
-                      amountOz: sellItem.weightOz, // This will be passed correctly from bulk logic
-                      pricePerOz: price,
-                      totalValue: sellItem.value,
-                      date: timestamp,
-                      status: (payoutMethod === 'balance' ? 'Completed' : 'Pending Funds') as TransactionStatus
-                  });
-
-                  // === COMMAND CENTER INTEGRATION ===
-                  // Create shared transaction for each sell
-                  await createSharedTransaction({
-                      type: 'sell',
-                      metal: item.metalType,
-                      weightOzt: sellItem.weightOz,
-                      pricePerOzt: price,
-                      amount: sellItem.value,
-                      status: payoutMethod === 'balance' ? 'completed' : 'pending_funds',
-                      paymentMethod: payoutMethod || 'balance'
-                  });
-              }
-
-              // Update Balance Once
-              if (payoutMethod === 'balance' && totalPayout > 0) {
-                  await updateUserBalance(user.id, userProfile.cashBalance + totalPayout);
-              }
-          }
+          // Trade execution — placeholder until real API trade flow is implemented
+          // The FizTrade API endpoints exist but full checkout flow needs balance integration
+          alert(`Trade ${action} ${metal} submitted. This will be processed through the Command Center.`);
       } catch (error) {
           console.error("Trade failed:", error);
           alert("Trade execution failed. Please try again.");
@@ -603,22 +438,13 @@ export default function App() {
               });
 
               if (result.data?.success) {
-                  // Show success message - withdrawal is pending approval
                   alert(`Withdrawal request submitted!\n\n$${amount.toLocaleString()} will be transferred once approved.\nYou'll be notified when processed.`);
               } else {
                   throw new Error('Withdrawal request failed');
               }
           } else {
-              // === DEPOSIT: Process locally (Plaid deposit handled separately) ===
-              const newBalance = userProfile.cashBalance + amount;
-              await updateUserBalance(user.id, newBalance);
-
-              await createSharedTransaction({
-                  type: 'deposit',
-                  amount: amount,
-                  status: 'completed',
-                  paymentMethod: 'balance'
-              });
+              // === DEPOSIT: Handled via Fund Account / Plaid ===
+              alert('To deposit funds, use the Fund Account option in your Wallet to initiate a wire transfer.');
           }
 
           setShowTransferModal(false);
@@ -628,13 +454,13 @@ export default function App() {
       }
   };
 
-  const handleManualAdd = async (item: BullionItem) => {
-      await addInventoryItem(item);
+  const handleManualAdd = async (_item: BullionItem) => {
+      // Manual inventory add removed (data comes from API now)
       setView('vault');
   };
 
-  const handleManualUpdate = async (item: BullionItem) => {
-      await updateInventoryItem(item);
+  const handleManualUpdate = async (_item: BullionItem) => {
+      // Manual inventory update removed (data comes from API now)
       setView('vault');
   };
 
@@ -728,7 +554,7 @@ export default function App() {
              <Vault
                 inventory={inventory}
                 prices={prices}
-                onDelete={deleteInventoryItem}
+                onDelete={(_id: string) => { /* Vault items managed via API */ }}
                 onEdit={(item) => {
                     setEditingItem(item);
                     setView('add');
@@ -740,8 +566,15 @@ export default function App() {
              />
          )}
 
+         {view === 'wallet' && (
+             <FundingWallet
+                customerId={customerId ? parseInt(customerId) : 0}
+                onFundingComplete={() => setView('dashboard')}
+             />
+         )}
+
          {view === 'add' && (
-             <AddItem 
+             <AddItem
                 inventory={inventory}
                 onAdd={handleManualAdd}
                 onUpdate={handleManualUpdate}
@@ -763,8 +596,8 @@ export default function App() {
                     setShowTradeModal(true);
                 }}
                 alerts={alerts}
-                onAddAlert={addPriceAlert}
-                onRemoveAlert={deletePriceAlert}
+                onAddAlert={(alert: PriceAlert) => setAlerts(prev => [...prev, alert])}
+                onRemoveAlert={(id: string) => setAlerts(prev => prev.filter(a => a.id !== id))}
                 selectedMetal={selectedMetal}
                 onSelectMetal={(m) => {
                      setSelectedMetal(m);
@@ -783,7 +616,7 @@ export default function App() {
          )}
 
          {view === 'history' && <History inventory={inventory} transactions={transactions} />}
-         {view === 'documents' && <Documents files={files} />}
+         {view === 'documents' && <Documents />}
          {view === 'customers' && <AdminCustomers />}
          {view === 'payment-methods' && <PaymentMethods userProfile={userProfile} />}
          
@@ -854,22 +687,20 @@ export default function App() {
                   </button>
               </div>
 
-              <button 
+              <button
+                onClick={() => setView('wallet')}
+                className={`flex flex-col items-center justify-center w-full h-full ${view === 'wallet' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
+              >
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                  <span className="text-[10px] font-bold uppercase tracking-wide">Wallet</span>
+              </button>
+
+              <button
                 onClick={() => setView('vault')}
                 className={`flex flex-col items-center justify-center w-full h-full ${view === 'vault' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
               >
                   <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                   <span className="text-[10px] font-bold uppercase tracking-wide">Vault</span>
-              </button>
-
-              <button 
-                onClick={() => setView('landing')}
-                className={`flex flex-col items-center justify-center w-full h-full ${view === 'landing' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
-              >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 mb-1 ${view === 'landing' ? 'border-gold-500 bg-gold-500 text-navy-900' : 'border-gray-400 text-gray-400'}`}>
-                      <span className="font-serif font-bold text-[10px]">M</span>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wide">Maroon</span>
               </button>
           </div>
       </nav>

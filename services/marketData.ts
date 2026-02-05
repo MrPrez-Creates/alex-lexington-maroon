@@ -1,7 +1,7 @@
 
 import { SpotPrices, MetalType, MarketHistoryRecord } from '../types';
 import { MOCK_SPOT_PRICES } from '../constants';
-import { saveMarketHistoryRecord, getMarketHistory } from './firestoreService';
+// Market history now uses static data only (Firebase persistence removed)
 
 const LIVE_TICKER_URL = 'https://alex-app-live-ticker.andre-46c.workers.dev/';
 
@@ -153,37 +153,10 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "1985-01-02", XAU: 305.5, XAG: 6.15, XPT: 0, XPD: 0 }
 ];
 
-// In-memory cache for Firestore history to prevent excessive reads
-let cachedFirestoreHistory: MarketHistoryRecord[] = [];
-let lastFetchTime = 0;
-const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
+// In-memory cache for daily price updates during session
+let sessionHistory: MarketHistoryRecord[] = [];
 
-const getMergedHistory = async (): Promise<MarketHistoryRecord[]> => {
-    const now = Date.now();
-    // Use cached data if fresh enough and populated
-    if (now - lastFetchTime > CACHE_DURATION || cachedFirestoreHistory.length === 0) {
-        // Fetch from the robust dual-read service
-        try {
-            const dbHistory = await getMarketHistory();
-            if (dbHistory && dbHistory.length > 0) {
-                 cachedFirestoreHistory = dbHistory;
-                 lastFetchTime = now;
-            }
-        } catch (e) {
-            console.error("Failed to merge history:", e);
-        }
-    }
-    return cachedFirestoreHistory;
-};
-
-// Simple debounce to prevent writing daily history on every ticker update
-let lastHistorySave = 0;
-
-const updateDailyHistory = async (prices: SpotPrices) => {
-    const now = Date.now();
-    // Only attempt to save once every hour to prevent spamming
-    if (now - lastHistorySave < 1000 * 60 * 60) return;
-
+const updateSessionHistory = (prices: SpotPrices) => {
     const today = new Date().toISOString().split('T')[0];
     const record: MarketHistoryRecord = {
       date: today,
@@ -193,24 +166,11 @@ const updateDailyHistory = async (prices: SpotPrices) => {
       XPD: prices[MetalType.PALLADIUM] || 0
     };
 
-    // Optimistically update local cache so chart reflects it immediately
-    const existingIndex = cachedFirestoreHistory.findIndex(d => d.date === today);
+    const existingIndex = sessionHistory.findIndex(d => d.date === today);
     if (existingIndex >= 0) {
-        cachedFirestoreHistory[existingIndex] = record;
+        sessionHistory[existingIndex] = record;
     } else {
-        cachedFirestoreHistory.push(record);
-    }
-    
-    // Persist to Firestore (Service handles fallback logic)
-    try {
-        const success = await saveMarketHistoryRecord(record);
-        // Only update timestamp if save was successful (or at least attempted with a user)
-        // If false, it means no user was logged in, so we should retry next tick
-        if (success) {
-            lastHistorySave = now;
-        }
-    } catch (e) {
-        console.error("Failed to save daily history", e);
+        sessionHistory.push(record);
     }
 };
 
@@ -239,8 +199,8 @@ export const fetchLiveSpotPrices = async (): Promise<SpotPrices> => {
         });
     }
     
-    // Save daily price point to Firestore (debounced)
-    updateDailyHistory(formattedPrices);
+    // Update session cache with latest prices
+    updateSessionHistory(formattedPrices);
     
     return formattedPrices;
   } catch (error) {
@@ -267,19 +227,12 @@ export const fetchChartHistory = async (metal: string, timeframe: string): Promi
     }
   });
 
-  // 2. Overlay persistent daily updates from Firestore
-  try {
-      const dbHistory = await getMergedHistory();
-      if (dbHistory) {
-          dbHistory.forEach(item => {
-            if (item && item.date) {
-                combinedMap.set(item.date, item);
-            }
-          });
-      }
-  } catch (e) {
-      console.warn("Could not merge history, falling back to static data.");
-  }
+  // 2. Overlay session updates (live prices captured during this session)
+  sessionHistory.forEach(item => {
+    if (item && item.date) {
+        combinedMap.set(item.date, item);
+    }
+  });
 
   const combinedArray = Array.from(combinedMap.values()).sort((a, b) => {
     // Robust date parsing with safety checks

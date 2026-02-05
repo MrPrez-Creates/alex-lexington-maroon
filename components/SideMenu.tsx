@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { UserProfile, updateUserProfile, deleteUserAccount, Address } from '../services/firestoreService';
+import { deleteUserAccount } from '../services/authService';
+import { updateCustomerProfile } from '../services/apiService';
 import { verifyAddress } from '../services/geminiService';
-import { ViewState } from '../types';
+import { UserProfile, Address, ViewState } from '../types';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -85,12 +86,10 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, user, userProfile,
 
   const handleSaveProfile = async () => {
       try {
-          await updateUserProfile({ 
+          await updateCustomerProfile({
               name: editName,
-              organization: editOrganization,
-              phoneNumber: editPhone,
-              billingAddress: editAddress
-          }, editPhoto || undefined);
+              phone: editPhone,
+          });
           setIsEditing(false);
       } catch (e) {
           console.error("Failed to update profile", e);

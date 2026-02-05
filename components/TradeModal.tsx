@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SpotPrices, MetalType, BullionItem, AssetForm, UserProfile, PaymentMethod, RecurringFrequency } from '../types';
 import { getStandardWeight, calculateItemValue } from '../utils/calculations';
-import { addPaymentMethod } from '../services/firestoreService';
+// Payment methods managed locally (mock)
+const addPaymentMethod = async (_method: PaymentMethod) => { /* no-op */ };
 import {
   calculateBuyPrice,
   calculateSellPrice,
