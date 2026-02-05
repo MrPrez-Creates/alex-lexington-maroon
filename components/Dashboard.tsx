@@ -383,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
           </div>
 
           {/* SECTION 3: TRANSACTIONS */}
-          <div className="lg:col-span-8 pb-6 order-3 lg:order-3">
+          <div className="lg:col-span-8 pb-24 order-3 lg:order-3">
               <h3 className="text-sm font-bold text-navy-900 dark:text-white mb-4 ml-1">Recent Transactions</h3>
               <div className="space-y-3">
                   {combinedHistory.map((item) => (
