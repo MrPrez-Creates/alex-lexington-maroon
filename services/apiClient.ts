@@ -531,6 +531,37 @@ export async function getShopMetalPrices(): Promise<ApiResponse<Array<{
 }
 
 // ============================================
+// WALLET / FUNDING
+// ============================================
+
+export interface FundingInfo {
+  al_account_number: string | null;
+  customer_name: string;
+  balance: {
+    available: number;
+    pending: number;
+    cash: number;
+  };
+  wire_instructions: {
+    bank_name: string;
+    bank_address: string;
+    routing_number: string;
+    account_number: string;
+    beneficiary_name: string;
+    beneficiary_address: string;
+  };
+  memo_instructions: string;
+  timing: {
+    wire: string;
+    ach: string;
+  };
+}
+
+export async function getWalletFundingInfo(customerId: string): Promise<FundingInfo> {
+  return apiFetch(`/api/funding/info/${customerId}`);
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 

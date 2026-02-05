@@ -57,6 +57,7 @@ import ContactSupport from './components/ContactSupport';
 import AdminSupport from './components/AdminSupport';
 import AdminRisk from './components/AdminRisk';
 import FundingWallet from './components/FundingWallet';
+import FundAccountScreen from './components/FundAccountScreen';
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -570,6 +571,15 @@ export default function App() {
              <FundingWallet
                 customerId={customerId ? parseInt(customerId) : 0}
                 onFundingComplete={() => setView('dashboard')}
+                onNavigateToFundAccount={() => setView('fund-account')}
+             />
+         )}
+
+         {view === 'fund-account' && (
+             <FundAccountScreen
+                customerId={customerId || '0'}
+                onBack={() => setView('wallet')}
+                onLinkBank={() => setView('wallet')}
              />
          )}
 

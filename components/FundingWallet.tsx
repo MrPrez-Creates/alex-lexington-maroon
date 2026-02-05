@@ -4,6 +4,7 @@ import PlaidBankLink from './PlaidBankLink';
 interface FundingWalletProps {
   customerId: number;
   onFundingComplete?: () => void;
+  onNavigateToFundAccount?: () => void;
 }
 
 interface BankAccount {
@@ -42,6 +43,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://al-business-api.andre-
 const FundingWallet: React.FC<FundingWalletProps> = ({
   customerId,
   onFundingComplete,
+  onNavigateToFundAccount,
 }) => {
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -217,9 +219,22 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
         </div>
 
         {/* Info note */}
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 mb-3">
           Use your funding balance to purchase precious metals instantly.
         </p>
+
+        {/* Wire Transfer CTA */}
+        {onNavigateToFundAccount && (
+          <button
+            onClick={onNavigateToFundAccount}
+            className="w-full py-2.5 rounded-xl border border-gold-500/30 text-gold-500 text-sm font-medium hover:bg-gold-500/10 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Fund via Wire Transfer
+          </button>
+        )}
       </div>
 
       {/* Linked Bank Accounts */}
