@@ -7,8 +7,6 @@ import {
 } from './services/marketData';
 import {
   subscribeToUserProfile,
-  subscribeToInventory,
-  subscribeToTransactions,
   subscribeToAlerts,
   subscribeToUserFiles,
   addInventoryItem,
@@ -23,13 +21,18 @@ import {
   // Shared collection functions for Command Center integration
   addVaultHolding,
   createSharedTransaction,
-  subscribeToVaultHoldings
 } from './services/firestoreService';
 import {
+  getCustomerHoldings,
   getCustomerHoldingsByFirebaseUid,
+  getCustomerOrderHistory,
+  getClientVaultHoldings,
   VaultHolding as ApiVaultHolding,
+  PhysicalVaultHolding,
   requestWithdrawal
 } from './services/apiClient';
+import { resolveCustomerId } from './services/apiService';
+import type { SharedCustomer } from './types';
 import { 
   BullionItem, 
   SpotPrices, 
@@ -74,6 +77,11 @@ export default function App() {
   // Auth State (Now using Supabase)
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // Customer link state (Step 2: auth -> customer record)
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [apiCustomer, setApiCustomer] = useState<SharedCustomer | null>(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
 
   // App Data State
   const [prices, setPrices] = useState<SpotPrices>(MOCK_SPOT_PRICES);
@@ -127,6 +135,26 @@ export default function App() {
   // ERP Tab State
   const [erpTab, setErpTab] = useState<'risk' | 'crm' | 'ai'>('risk');
 
+  // --- Helpers ---
+
+  // Map API metal codes (GOLD, SILV, PLAT, PALL) to app metal types (gold, silver, platinum, palladium)
+  const mapMetalCode = (code: string): string => {
+    const map: Record<string, string> = {
+      GOLD: 'gold', SILV: 'silver', PLAT: 'platinum', PALL: 'palladium',
+      gold: 'gold', silver: 'silver', platinum: 'platinum', palladium: 'palladium',
+    };
+    return map[code] || code.toLowerCase();
+  };
+
+  // Map order status to Transaction status
+  const mapOrderStatus = (status: string): TransactionStatus => {
+    switch (status) {
+      case 'delivered': case 'paid': return TransactionStatus.COMPLETED;
+      case 'shipped': case 'processing': return TransactionStatus.PENDING_RECEIPT;
+      default: return TransactionStatus.PENDING_FUNDS;
+    }
+  };
+
   // --- Effects ---
 
   // 1. Auth Listener (Now using Supabase)
@@ -153,11 +181,43 @@ export default function App() {
         setLocalInventory([]);
         setApiHoldings([]);
         setTransactions([]);
+        setCustomerId(null);
+        setApiCustomer(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [view, isRegistrationFlow]);
+
+  // 1b. Resolve authenticated user -> Command Center customer record
+  useEffect(() => {
+    if (!user) {
+      setCustomerId(null);
+      setApiCustomer(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCustomerLoading(true);
+
+    resolveCustomerId().then(({ customerId: cid, customer }) => {
+      if (cancelled) return;
+      setCustomerId(cid);
+      setApiCustomer(customer);
+      setCustomerLoading(false);
+      if (cid) {
+        console.log(`[Maroon] Linked to customer ${cid}`, customer?.name);
+      } else {
+        console.warn('[Maroon] Could not resolve customer record');
+      }
+    }).catch((err) => {
+      if (cancelled) return;
+      console.error('[Maroon] Customer resolution failed:', err);
+      setCustomerLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   // 2. User Profile Subscription
   useEffect(() => {
@@ -174,65 +234,129 @@ export default function App() {
       return () => unsub();
   }, [user]);
 
-  // 3. Data Subscriptions (Firebase)
+  // 3. Data from API (replaces Firebase subscriptions when customerId is available)
+  useEffect(() => {
+      if (!user) return;
+      if (customerLoading) return;
+
+      // If we have a customerId, fetch real data from Command Center API
+      if (customerId) {
+          let cancelled = false;
+
+          const fetchAllData = async () => {
+              try {
+                  // Fetch all three in parallel
+                  const [webHoldingsRes, physicalHoldingsRes, ordersRes] = await Promise.all([
+                      getCustomerHoldings(customerId, true),
+                      getClientVaultHoldings(customerId),
+                      getCustomerOrderHistory(customerId, { limit: 50 }),
+                  ]);
+
+                  if (cancelled) return;
+
+                  // --- Map web order holdings (purchases from Shopify/WooCommerce) ---
+                  const webItems: BullionItem[] = [];
+                  if (webHoldingsRes.data?.holdings) {
+                      webHoldingsRes.data.holdings.forEach((h: ApiVaultHolding) => {
+                          webItems.push({
+                              id: `web-${h.holding_id}`,
+                              name: h.name || h.description || `${h.metal_name} (Order #${h.order_number})`,
+                              metalType: mapMetalCode(h.metal_code),
+                              weightAmount: h.weight_ozt,
+                              weightUnit: 'oz',
+                              quantity: h.quantity,
+                              purchasePrice: h.cost_basis,
+                              currentValue: h.current_value,
+                              acquiredAt: h.purchased_at ? h.purchased_at.split('T')[0] : '',
+                              form: h.weight_category || AssetForm.BAR,
+                              purity: '.9999',
+                              mint: 'Alex Lexington (Vault)',
+                              notes: `Order #${h.order_number} | Status: ${h.status}`,
+                              sku: h.sku || undefined,
+                          });
+                      });
+                  }
+
+                  // --- Map physical vault holdings (items stored with AL) ---
+                  const physicalItems: BullionItem[] = [];
+                  if (physicalHoldingsRes.data?.holdings) {
+                      physicalHoldingsRes.data.holdings.forEach((h: PhysicalVaultHolding) => {
+                          if (h.status !== 'held') return;
+                          const metalCode = (h.metals?.code || 'GOLD');
+                          physicalItems.push({
+                              id: `vault-${h.holding_id}`,
+                              name: h.products?.name || h.description || `${h.metals?.name || 'Metal'} (Vault)`,
+                              metalType: mapMetalCode(metalCode),
+                              weightAmount: h.weight_ozt,
+                              weightUnit: 'oz',
+                              quantity: h.quantity || 1,
+                              purchasePrice: h.cost_basis || 0,
+                              currentValue: h.computed_current_value,
+                              acquiredAt: h.deposited_at ? h.deposited_at.split('T')[0] : '',
+                              form: AssetForm.BAR,
+                              purity: '.9999',
+                              mint: 'Alex Lexington (Vault)',
+                              notes: `Physical Vault | ${h.bag_tag ? `Bag: ${h.bag_tag}` : 'Commingled'}`,
+                              sku: h.products?.sku || undefined,
+                          });
+                      });
+                  }
+
+                  if (!cancelled) {
+                      // Combine web + physical holdings, deduped
+                      const allItems = [...webItems, ...physicalItems];
+                      setLocalInventory(allItems);
+                      setApiHoldings([]); // Clear separate apiHoldings since everything is now in localInventory
+                  }
+
+                  // --- Map orders to Transaction format ---
+                  if (ordersRes.data && !cancelled) {
+                      const txs: Transaction[] = ordersRes.data.map((order: any) => {
+                          const items = order.web_order_items || [];
+                          const firstItem = items[0];
+                          const metalName = firstItem?.metals?.name || firstItem?.description || 'Order';
+                          const totalOzt = items.reduce((sum: number, i: any) => sum + parseFloat(i.weight_ozt || 0) * (i.quantity || 1), 0);
+                          const total = parseFloat(order.total || 0);
+
+                          return {
+                              id: `order-${order.order_id}`,
+                              type: 'buy' as TransactionType,
+                              metal: mapMetalCode(firstItem?.metals?.code || ''),
+                              itemName: items.length === 1 ? metalName : `${items.length} items`,
+                              amountOz: totalOzt,
+                              pricePerOz: totalOzt > 0 ? total / totalOzt : 0,
+                              totalValue: total,
+                              date: order.ordered_at || order.created_at,
+                              status: mapOrderStatus(order.status),
+                          } as Transaction;
+                      });
+                      setTransactions(txs);
+                  }
+
+              } catch (error) {
+                  console.error('[Maroon] Failed to fetch API data:', error);
+              }
+          };
+
+          fetchAllData();
+          const interval = setInterval(fetchAllData, 60000);
+          return () => { cancelled = true; clearInterval(interval); };
+      }
+
+      // No customerId yet — data will show as empty until customer resolves
+  }, [user, customerId, customerLoading]);
+
+  // 3b. Alerts & files always from Firebase (no API equivalent yet)
   useEffect(() => {
       if (!user) return;
 
-      const unsubInventory = subscribeToInventory(setLocalInventory);
-      const unsubTransactions = subscribeToTransactions(setTransactions);
       const unsubAlerts = subscribeToAlerts(setAlerts);
       const unsubFiles = subscribeToUserFiles(setFiles);
-      const unsubVaultHoldings = subscribeToVaultHoldings(setVaultHoldings);
 
       return () => {
-          unsubInventory();
-          unsubTransactions();
           unsubAlerts();
           unsubFiles();
-          unsubVaultHoldings();
       };
-  }, [user]);
-
-  // 3b. Fetch holdings from Supabase API (purchases from Shopify/Command Center)
-  useEffect(() => {
-      if (!user) {
-          setApiHoldings([]);
-          return;
-      }
-
-      const fetchApiHoldings = async () => {
-          try {
-              const response = await getCustomerHoldingsByFirebaseUid(user.id);
-              if (response.data && response.data.holdings) {
-                  // Convert API holdings to BullionItem format
-                  const holdings: BullionItem[] = response.data.holdings.map((h: ApiVaultHolding) => ({
-                      id: h.holding_id,
-                      name: h.name || h.description || `${h.metal_name} (Order #${h.order_number})`,
-                      metalType: h.metal_code.toLowerCase(),
-                      weightAmount: h.weight_ozt,
-                      weightUnit: 'oz',
-                      quantity: h.quantity,
-                      purchasePrice: h.cost_basis,
-                      currentValue: h.current_value,
-                      acquiredAt: h.purchased_at.split('T')[0],
-                      form: h.weight_category || AssetForm.BAR,
-                      purity: '.9999',
-                      mint: 'Alex Lexington (Vault)',
-                      notes: `Order #${h.order_number} | Status: ${h.status}`,
-                      sku: h.sku || undefined,
-                  }));
-                  setApiHoldings(holdings);
-              }
-          } catch (error) {
-              console.error('Failed to fetch API holdings:', error);
-              // Don't clear existing holdings on error - they might just be temporarily unavailable
-          }
-      };
-
-      fetchApiHoldings();
-      // Refresh every 60 seconds to pick up new purchases
-      const interval = setInterval(fetchApiHoldings, 60000);
-      return () => clearInterval(interval);
   }, [user]);
 
   // 4. Price Ticker
@@ -472,7 +596,7 @@ export default function App() {
           if (type === 'withdraw') {
               // === WITHDRAWAL: Submit to API for staff approval ===
               const result = await requestWithdrawal({
-                  customer_id: user.id,
+                  customer_id: customerId || user.id,
                   amount: amount,
                   speed: 'standard',
                   description: 'Withdrawal request from Maroon app'
@@ -574,11 +698,11 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pt-28 pb-32 scroll-smooth">
          {view === 'dashboard' && (
-             <Dashboard 
+             <Dashboard
                 inventory={inventory}
                 transactions={transactions}
                 prices={prices}
-                cashBalance={userProfile?.cashBalance || 0}
+                cashBalance={apiCustomer?.cashBalance ?? userProfile?.cashBalance ?? 0}
                 onTrade={(action, metal) => {
                     setTradeConfig({ action, metal });
                     setShowTradeModal(true);
@@ -920,7 +1044,7 @@ export default function App() {
           isOpen={showTransferModal}
           onClose={() => setShowTransferModal(false)}
           type={transferType}
-          availableBalance={userProfile?.cashBalance}
+          availableBalance={apiCustomer?.cashBalance ?? userProfile?.cashBalance}
           userProfile={userProfile}
           onConfirm={handleTransfer}
       />

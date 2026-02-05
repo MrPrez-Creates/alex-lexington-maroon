@@ -320,6 +320,56 @@ export async function getCustomerVaultSummary(customerId: string | number): Prom
 }
 
 // ============================================
+// PHYSICAL VAULT HOLDINGS (client_vault_holdings)
+// ============================================
+
+export interface PhysicalVaultHolding {
+  holding_id: number;
+  account_id: number;
+  product_id: number | null;
+  metal_id: number;
+  description: string;
+  weight_ozt: number;
+  quantity: number;
+  cost_basis: number | null;
+  purchase_price_per_ozt: number | null;
+  location_id: number | null;
+  bag_tag: string | null;
+  source_type: string;
+  status: 'held' | 'withdrawn' | 'pending_withdrawal';
+  deposited_at: string;
+  withdrawn_at: string | null;
+  created_at: string;
+  updated_at: string;
+  computed_current_value: number;
+  computed_gain_loss: number;
+  computed_gain_loss_percent: number;
+  products: { product_id: number; name: string; sku: string } | null;
+  metals: { metal_id: number; code: string; name: string; current_spot_price: number } | null;
+}
+
+export interface PhysicalVaultResponse {
+  account: any | null;
+  holdings: PhysicalVaultHolding[];
+  summary: {
+    total_ozt: number;
+    total_value: number;
+    total_cost: number;
+    gain_loss: number;
+    by_metal: Record<string, { ozt: number; value: number; cost: number; count: number }>;
+  };
+}
+
+/**
+ * Get customer's physical vault holdings (items stored with Alex Lexington)
+ */
+export async function getClientVaultHoldings(
+  customerId: string | number
+): Promise<ApiResponse<PhysicalVaultResponse>> {
+  return apiFetch(`/api/client-holdings/${customerId}`);
+}
+
+// ============================================
 // FUNDING / WITHDRAWAL ENDPOINTS
 // ============================================
 

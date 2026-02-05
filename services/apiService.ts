@@ -117,6 +117,82 @@ export const getMyCustomerProfile = async (): Promise<SharedCustomer | null> => 
 };
 
 /**
+ * Resolve the authenticated Supabase user to a Command Center customer_id.
+ *
+ * Flow:
+ *  1. Look up by maroon_user_id (Supabase UID) — fast path for returning users.
+ *  2. If not found, search by email.
+ *     - If email match found, PATCH customer to set maroon_user_id + has_maroon_account.
+ *  3. If no match at all, create a new customer record.
+ *
+ * Returns the numeric customer_id (as a string) or null on failure.
+ */
+export const resolveCustomerId = async (): Promise<{
+  customerId: string | null;
+  customer: SharedCustomer | null;
+}> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { customerId: null, customer: null };
+
+  // 1. Try by maroon_user_id (Supabase UID)
+  const byUidResponse = await apiRequest<any>(`/api/customers/by-maroon/${user.id}`);
+  if (!byUidResponse.error && byUidResponse.data) {
+    const customer = mapApiCustomerToShared(byUidResponse.data);
+    return { customerId: customer.id, customer };
+  }
+
+  // 2. Fallback: search by email
+  if (user.email) {
+    const searchResponse = await apiRequest<any[]>(
+      `/api/customers?search=${encodeURIComponent(user.email)}&limit=1`
+    );
+
+    if (searchResponse.data && searchResponse.data.length > 0) {
+      const match = searchResponse.data[0];
+      if (match.email?.toLowerCase() === user.email.toLowerCase()) {
+        // Link this customer to the Supabase user
+        await apiRequest(`/api/customers/${match.customer_id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            maroon_user_id: user.id,
+            has_maroon_account: true,
+          }),
+        });
+        const customer = mapApiCustomerToShared({ ...match, maroon_user_id: user.id });
+        return { customerId: customer.id, customer };
+      }
+    }
+  }
+
+  // 3. No match — create a new customer
+  const nameParts = (user.user_metadata?.full_name || user.email?.split('@')[0] || '').trim().split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  const createResponse = await apiRequest<any>('/api/customers', {
+    method: 'POST',
+    body: JSON.stringify({
+      first_name: firstName,
+      last_name: lastName,
+      email: user.email || '',
+      phone: '',
+      customer_type: 'retail',
+      maroon_user_id: user.id,
+      has_maroon_account: true,
+      notes: 'Created from Maroon app',
+    }),
+  });
+
+  if (createResponse.error || !createResponse.data) {
+    console.error('Failed to create customer:', createResponse.error);
+    return { customerId: null, customer: null };
+  }
+
+  const customer = mapApiCustomerToShared(createResponse.data);
+  return { customerId: customer.id, customer };
+};
+
+/**
  * Create or link customer in Command Center database
  */
 export const createOrLinkCustomer = async (
