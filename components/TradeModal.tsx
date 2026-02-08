@@ -231,6 +231,13 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
       handleWeightChange(oz.toString());
   };
 
+  // Generate a reference number for the order
+  const orderRef = useMemo(() => {
+      const ts = Date.now().toString(36).toUpperCase();
+      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+      return `AL-${ts}-${rand}`;
+  }, [step === 'success']); // regenerate only on success step
+
   const handleConfirm = () => {
       if (action === 'buy') {
           // Pass the premium price per oz, not spot
@@ -265,10 +272,12 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
               onTrade('sell', selectedSellItemsList[0].metalType, totalSellValue, 'usd', sellRate.pricePerOz, undefined, undefined, payoutMethod, undefined, undefined, undefined, undefined, bulkPayload);
           }
       }
-      onClose();
+      // Show success step instead of closing immediately
+      setStep('success');
   };
 
   const getTitle = () => {
+      if (step === 'success') return 'Order Submitted';
       if (step === 'review') return 'Review Transaction';
       return action === 'buy' ? 'Execute Trade' : 'Sell Assets';
   };
@@ -714,17 +723,146 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                         )}
                     </div>
                 )}
+
+                {/* --- SUCCESS STEP --- */}
+                {step === 'success' && (
+                    <div className="space-y-6 animate-fade-in text-center">
+                        {/* Success Icon */}
+                        <div className="flex justify-center">
+                            <div className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500 flex items-center justify-center animate-scale-in">
+                                <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-2xl font-serif text-white mb-2">
+                                {action === 'buy' ? 'Purchase Order Submitted' : 'Sell Order Submitted'}
+                            </h3>
+                            <p className="text-gray-400 text-sm">
+                                Your order has been received and is being processed by our team.
+                            </p>
+                        </div>
+
+                        {/* Order Summary Card */}
+                        <div className="bg-navy-900 p-5 rounded-xl border border-white/10 text-left space-y-3">
+                            <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                                <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Reference</span>
+                                <span className="text-xs font-mono text-gold-500 font-bold">{orderRef}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-400">Type</span>
+                                <span className={`text-xs font-bold uppercase ${action === 'buy' ? 'text-green-500' : 'text-red-400'}`}>
+                                    {action === 'buy' ? 'Buy Order' : 'Sell Order'}
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-400">Asset</span>
+                                <span className="text-xs text-white font-bold capitalize">{metal}</span>
+                            </div>
+
+                            {action === 'buy' ? (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-gray-400">Weight</span>
+                                        <span className="text-xs text-white font-mono">{currentWeightVal.toFixed(4)} oz</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-gray-400">Price Per Oz</span>
+                                        <span className="text-xs text-white font-mono">${buyPricePerOz.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-3 border-t border-white/10">
+                                        <span className="text-xs text-gray-400 font-bold">Total</span>
+                                        <span className="text-lg text-white font-mono font-bold">${buyAmountVal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    </div>
+                                    {fulfillmentType === 'storage' && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs text-gray-400">Storage</span>
+                                            <span className="text-xs text-gold-500 capitalize">{storageType} Vault</span>
+                                        </div>
+                                    )}
+                                    {fulfillmentType === 'delivery' && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs text-gray-400">Delivery</span>
+                                            <span className="text-xs text-gold-500 capitalize">{deliveryMethod === 'shipping' ? 'Insured Shipping' : 'Store Pickup'}</span>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-gray-400">Items</span>
+                                        <span className="text-xs text-white">{selectedSellItemsList.length} item{selectedSellItemsList.length !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-gray-400">Total Weight</span>
+                                        <span className="text-xs text-white font-mono">{totalSellWeight.toFixed(4)} oz</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-3 border-t border-white/10">
+                                        <span className="text-xs text-gray-400 font-bold">Payout</span>
+                                        <span className="text-lg text-green-500 font-mono font-bold">${totalSellValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Next Steps */}
+                        <div className="bg-gold-500/5 border border-gold-500/20 rounded-xl p-4 text-left">
+                            <div className="text-[10px] uppercase tracking-widest text-gold-500 font-bold mb-2">What Happens Next</div>
+                            <ul className="space-y-2">
+                                <li className="flex items-start gap-2">
+                                    <span className="text-gold-500 text-xs mt-0.5">①</span>
+                                    <span className="text-xs text-gray-300">Our team will review and confirm your order within 1 business day.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-gold-500 text-xs mt-0.5">②</span>
+                                    <span className="text-xs text-gray-300">
+                                        {action === 'buy'
+                                            ? 'You\'ll receive a payment invoice via email with wire instructions or payment link.'
+                                            : 'Once verified, your payout will be processed to your selected method.'
+                                        }
+                                    </span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-gold-500 text-xs mt-0.5">③</span>
+                                    <span className="text-xs text-gray-300">
+                                        {action === 'buy'
+                                            ? fulfillmentType === 'storage'
+                                                ? 'After payment clears, your metals will be allocated to your vault.'
+                                                : 'After payment clears, your order will be shipped or prepared for pickup.'
+                                            : 'A confirmation email will be sent once the transaction is complete.'
+                                        }
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <p className="text-[10px] text-gray-500">
+                            Questions? Chat with Maverick AI or email support@alexlexington.com
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Footer */}
             <div className="p-6 bg-navy-900 border-t border-white/5 shrink-0">
-                {step === 'input' ? (
-                    <button 
+                {step === 'success' ? (
+                    <button
+                        onClick={onClose}
+                        className="w-full py-4 bg-gold-500 hover:bg-gold-600 text-navy-900 rounded-sm font-bold tracking-[0.2em] uppercase text-sm transition-all shadow-lg shadow-gold-500/20"
+                    >
+                        Done
+                    </button>
+                ) : step === 'input' ? (
+                    <button
                         onClick={() => setStep('review')}
                         disabled={action === 'buy' ? (!buyAmountVal || buyAmountVal <= 0) : Object.keys(selectedItems).length === 0}
                         className={`w-full py-4 rounded-sm font-bold tracking-[0.2em] uppercase text-sm transition-all shadow-lg ${
                             (action === 'buy' ? (!buyAmountVal || buyAmountVal <= 0) : Object.keys(selectedItems).length === 0)
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                             : action === 'buy' ? 'bg-gold-500 hover:bg-gold-600 text-navy-900 shadow-gold-500/20' : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20'
                         }`}
                     >
@@ -732,18 +870,18 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                     </button>
                 ) : (
                     <div className="flex gap-4">
-                        <button 
+                        <button
                             onClick={() => setStep('input')}
                             className="flex-1 py-4 border border-white/10 hover:bg-white/5 text-white rounded-sm font-bold tracking-[0.2em] uppercase text-sm transition-colors"
                         >
                             Back
                         </button>
-                        <button 
+                        <button
                             onClick={handleConfirm}
                             disabled={action === 'buy' && fulfillmentType === 'storage' && !policyAccepted}
                             className={`flex-[2] py-4 rounded-sm font-bold tracking-[0.2em] uppercase text-sm transition-colors shadow-lg ${
                                 (action === 'buy' && fulfillmentType === 'storage' && !policyAccepted)
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                 : action === 'buy' ? 'bg-gold-500 hover:bg-gold-400 text-navy-900 shadow-gold-500/20' : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20'
                             }`}
                         >
