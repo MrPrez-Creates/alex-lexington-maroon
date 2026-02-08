@@ -59,7 +59,6 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
     { id: MetalType.SILVER, name: 'Silver', symbol: 'AG' },
     { id: MetalType.PLATINUM, name: 'Platinum', symbol: 'PT' },
     { id: MetalType.PALLADIUM, name: 'Palladium', symbol: 'PD' },
-    { id: MetalType.COPPER, name: 'Copper', symbol: 'CU' },
   ];
 
   // Load Sparklines for List View (1M View)
@@ -351,39 +350,74 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
         </div>
       </div>
 
-      {/* News & Blog Section */}
+      {/* Alex Lexington Media Feed */}
       <div>
-        <h2 className="text-xl font-bold text-navy-900 dark:text-white mb-4 mt-2">Market Insights</h2>
-        <div className="space-y-4">
+        <h2 className="text-xl font-bold text-navy-900 dark:text-white mb-4 mt-2">Alex Lexington Network</h2>
+        <div className="space-y-3">
             {isNewsLoading ? (
-                <div className="text-center py-8 text-gray-500 text-xs">Loading news...</div>
+                <div className="text-center py-8 text-gray-500 text-xs">Loading feed...</div>
             ) : (
-                newsItems.map((news) => (
-                    <a 
-                        key={news.id}
-                        href={news.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block bg-white dark:bg-navy-800 rounded-xl p-4 border border-gray-100 dark:border-navy-700 shadow-sm hover:border-gold-500/30 transition-colors group"
-                    >
-                        <div className="flex justify-between items-start mb-2">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${news.source === 'Alex Lexington' ? 'bg-gold-500 text-navy-900' : 'bg-navy-100 dark:bg-navy-700 text-gray-500 dark:text-gray-300'}`}>
-                                {news.source}
-                            </span>
-                            <span className="text-[10px] text-gray-400">
-                                {new Date(news.publishedAt).toLocaleDateString()}
-                            </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-navy-900 dark:text-white mb-2 leading-snug group-hover:text-gold-500 transition-colors">
-                            {news.title}
-                        </h3>
-                        {news.summary && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                                {news.summary}
-                            </p>
-                        )}
-                    </a>
-                ))
+                newsItems.map((news) => {
+                    const typeBadge = news.type === 'podcast'
+                        ? { label: 'Podcast', bg: 'bg-green-600', icon: '🎙️' }
+                        : news.type === 'youtube'
+                        ? { label: 'Video', bg: 'bg-red-600', icon: '▶' }
+                        : { label: 'Blog', bg: 'bg-gold-500 text-navy-900', icon: '📝' };
+
+                    return (
+                        <a
+                            key={news.id}
+                            href={news.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block bg-white dark:bg-navy-800 rounded-xl overflow-hidden border border-gray-100 dark:border-navy-700 shadow-sm hover:border-gold-500/30 transition-colors group"
+                        >
+                            <div className="flex">
+                                {/* Thumbnail for YouTube and Blog with images */}
+                                {news.imageUrl && (
+                                    <div className="w-24 h-24 flex-shrink-0 bg-navy-900 relative overflow-hidden">
+                                        <img
+                                            src={news.imageUrl}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                        />
+                                        {news.type === 'youtube' && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                                <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center">
+                                                    <span className="text-white text-xs ml-0.5">▶</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="flex-1 p-3 min-w-0">
+                                    <div className="flex justify-between items-start mb-1.5 gap-2">
+                                        <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 ${news.type === 'podcast' ? 'bg-green-600 text-white' : news.type === 'youtube' ? 'bg-red-600 text-white' : 'bg-gold-500 text-navy-900'}`}>
+                                            {typeBadge.icon} {typeBadge.label}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 flex-shrink-0">
+                                            {new Date(news.publishedAt).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-sm font-bold text-navy-900 dark:text-white mb-1 leading-snug group-hover:text-gold-500 transition-colors line-clamp-2">
+                                        {news.title}
+                                    </h3>
+                                    {news.summary && (
+                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                                            {news.summary}
+                                        </p>
+                                    )}
+                                    {news.type === 'podcast' && news.duration && (
+                                        <span className="text-[10px] text-green-500 font-medium mt-1 inline-block">
+                                            🎧 {news.duration}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </a>
+                    );
+                })
             )}
         </div>
       </div>

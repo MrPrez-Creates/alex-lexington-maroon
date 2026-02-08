@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BullionItem, MetalType, AssetForm, WeightUnit, ProductTemplate } from '../types';
 import { scanInvoice } from '../services/geminiService';
-import { useProductCatalog } from '../services/productService';
+import { useProductCatalog, matchToCatalog } from '../services/productService';
 import CameraScanner from './CameraScanner';
 import { getStandardWeight } from '../utils/calculations';
 
@@ -108,21 +108,16 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
   }, []);
 
   const checkDuplicates = () => {
-    const calculatedWeightOz = getStandardizedWeight(formData.weightAmount || 0, formData.weightUnit || 'oz');
-    
-    return inventory.find(item => 
-      (!initialItem || item.id !== initialItem.id) && 
+    const calculatedWeightOz = getStandardWeight(formData.weightAmount || 0, formData.weightUnit || 'oz');
+
+    return inventory.find(item =>
+      (!initialItem || item.id !== initialItem.id) &&
       item.name.toLowerCase() === formData.name?.toLowerCase() &&
       item.metalType === formData.metalType &&
       item.form === formData.form &&
-      Math.abs(getStandardizedWeight(item.weightAmount, item.weightUnit) - calculatedWeightOz) < 0.0001
+      Math.abs(getStandardWeight(item.weightAmount, item.weightUnit) - calculatedWeightOz) < 0.0001
     );
   };
-
-  // Wrapper for util helper
-  const getStandardizedWeight = (amount: number, unit: string) => {
-      return getStandardWeight(amount, unit);
-  }
 
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,20 +187,43 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
       const extracted = await scanInvoice(cleanBase64);
       
       if (extracted) {
-        setFormData(prev => ({
-          ...prev,
-          metalType: extracted.metalType || prev.metalType,
-          form: extracted.form || prev.form,
-          weightAmount: extracted.weightAmount || prev.weightAmount,
-          weightUnit: extracted.weightUnit || prev.weightUnit,
-          quantity: extracted.quantity || 1,
-          purchasePrice: extracted.purchasePrice || 0,
-          acquiredAt: extracted.acquiredAt || new Date().toISOString().split('T')[0],
-          name: extracted.name || prev.name,
-          purity: extracted.purity || prev.purity,
-          mint: extracted.mint || prev.mint,
-          mintage: extracted.mintage || prev.mintage
-        }));
+        // Try to match the AI result to a known product for accurate weight/purity
+        const catalogMatch = matchToCatalog(extracted.name || '', extracted.metalType);
+
+        if (catalogMatch && catalogMatch.confidence >= 0.6) {
+          // High-confidence match: use database values for weight/purity/mint
+          const p = catalogMatch.product;
+          setFormData(prev => ({
+            ...prev,
+            metalType: p.type || extracted.metalType || prev.metalType,
+            form: p.form || extracted.form || prev.form,
+            weightAmount: p.defaultWeight,
+            weightUnit: p.defaultUnit,
+            quantity: extracted.quantity || 1,
+            purchasePrice: extracted.purchasePrice || 0,
+            acquiredAt: extracted.acquiredAt || new Date().toISOString().split('T')[0],
+            name: p.name,
+            purity: p.purity,
+            mint: p.mint,
+            mintage: extracted.mintage || prev.mintage
+          }));
+        } else {
+          // No confident match: use raw AI extraction
+          setFormData(prev => ({
+            ...prev,
+            metalType: extracted.metalType || prev.metalType,
+            form: extracted.form || prev.form,
+            weightAmount: extracted.weightAmount || prev.weightAmount,
+            weightUnit: extracted.weightUnit || prev.weightUnit,
+            quantity: extracted.quantity || 1,
+            purchasePrice: extracted.purchasePrice || 0,
+            acquiredAt: extracted.acquiredAt || new Date().toISOString().split('T')[0],
+            name: extracted.name || prev.name,
+            purity: extracted.purity || prev.purity,
+            mint: extracted.mint || prev.mint,
+            mintage: extracted.mintage || prev.mintage
+          }));
+        }
       } else {
           setError("Could not extract data clearly. Please fill manually.");
       }

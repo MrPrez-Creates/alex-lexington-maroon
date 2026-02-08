@@ -57,16 +57,14 @@ export const MOCK_SPOT_PRICES = {
   [MetalType.GOLD]: 4617.30,
   [MetalType.SILVER]: 88.36,
   [MetalType.PLATINUM]: 2370.00,
-  [MetalType.PALLADIUM]: 1882.00,
-  [MetalType.COPPER]: 4.50 // Per lb usually, but simplistic here
+  [MetalType.PALLADIUM]: 1882.00
 };
 
 export const METAL_COLORS = {
   [MetalType.GOLD]: '#D4AF37',
   [MetalType.SILVER]: '#C0C0C0',
   [MetalType.PLATINUM]: '#E5E4E2',
-  [MetalType.PALLADIUM]: '#CED0DD',
-  [MetalType.COPPER]: '#B87333'
+  [MetalType.PALLADIUM]: '#CED0DD'
 };
 
 // PRODUCT_CATALOG is now exported from ./services/productService.ts

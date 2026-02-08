@@ -5,15 +5,15 @@ import { BullionItem, WeightUnit } from '../types';
  * Parses a purity string into a decimal factor (0 to 1).
  */
 export const parsePurity = (purity: string | undefined): number => {
-  if (!purity) return 1;
-  
+  if (!purity || purity.trim().length === 0) return 1;
+
   const lowerPurity = purity.toLowerCase().trim();
 
-  // Handle Karats
+  // Handle Karats (cap at 24)
   if (lowerPurity.includes('k')) {
     const karats = parseFloat(lowerPurity.replace(/[^0-9.]/g, ''));
-    if (!isNaN(karats)) {
-      return karats / 24;
+    if (!isNaN(karats) && karats > 0) {
+      return Math.min(karats, 24) / 24;
     }
   }
 
@@ -23,15 +23,17 @@ export const parsePurity = (purity: string | undefined): number => {
 
   if (isNaN(value)) return 1;
 
+  let result: number;
   if (purity.includes('%') || (value > 1 && value <= 100)) {
-    return value / 100;
-  }
-  
-  if (value > 1 && value <= 1000) {
-      return value / 1000;
+    result = value / 100;
+  } else if (value > 1 && value <= 1000) {
+    result = value / 1000;
+  } else {
+    result = value;
   }
 
-  return value;
+  // Clamp to valid range [0, 1]
+  return Math.min(Math.max(result, 0), 1);
 };
 
 // Conversion rates to Troy Ounces

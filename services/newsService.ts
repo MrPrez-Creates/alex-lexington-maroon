@@ -1,77 +1,137 @@
 
 // services/newsService.ts
+// Fetches unified media feed from Alex Lexington RSS proxy worker
+// Sources: Shopify Blog, Spotify/Anchor Podcast, YouTube
+
+const MEDIA_FEED_URL = 'https://al-media-feed.andre-46c.workers.dev/';
+
+export type MediaType = 'blog' | 'podcast' | 'youtube';
 
 export interface NewsItem {
   id: string;
+  type: MediaType;
   title: string;
-  source: 'Bloomberg' | 'Alex Lexington' | 'Market Wire' | 'Other';
+  source: 'Alex Lexington';
   summary?: string;
   url: string;
-  publishedAt: string; // ISO Date String
+  publishedAt: string;
   imageUrl?: string;
+  // Podcast-specific
+  spotifyUrl?: string;
+  duration?: string;
+  // YouTube-specific
+  videoId?: string;
 }
 
-// In a real production environment, you would use a backend proxy to fetch these RSS feeds 
-// to avoid CORS issues in the browser.
-// const FEED_URLS = [
-//   'https://www.bloomberg.com/feeds/commodities',
-//   'https://alexlexington.com/feed',
-// ];
+export interface MediaLinks {
+  spotify: string;
+  youtube: string;
+  instagram: string;
+  tiktok: string;
+}
 
-const MOCK_NEWS_DATA: NewsItem[] = [
+export interface MediaFeedResponse {
+  items: NewsItem[];
+  total: number;
+  mediaLinks: MediaLinks;
+  cached?: boolean;
+  errors?: { feed: string; error: string }[];
+}
+
+// Fallback data if the worker is unreachable
+const FALLBACK_DATA: NewsItem[] = [
   {
-    id: 'al-001',
-    title: "Alex Lexington Network: Strategic Gold Reserves Update",
+    id: 'fallback-1',
+    type: 'blog',
+    title: "Visit the Alex Lexington Blog",
     source: "Alex Lexington",
-    summary: "An in-depth look at how central banks are adjusting their gold positions heading into Q4 2024.",
-    url: "#",
-    publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+    summary: "Read the latest articles on precious metals investing, market analysis, and fine jewelry.",
+    url: "https://alexlexington.com/blogs/news",
+    publishedAt: new Date().toISOString(),
   },
   {
-    id: 'bb-001',
-    title: "Gold Rallies as Inflation Data Signals Persistent Price Pressures",
-    source: "Bloomberg",
-    summary: "Bullion advanced for a third day as traders weighed the latest CPI print against Federal Reserve signals.",
-    url: "#",
-    publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 4.5).toISOString(), // 4.5 hours ago
-  },
-  {
-    id: 'al-002',
-    title: "New Inventory Alert: 2025 Sovereign Coins",
+    id: 'fallback-2',
+    type: 'podcast',
+    title: "Listen to the Alex Lexington Network Podcast",
     source: "Alex Lexington",
-    summary: "We have just received our first shipment of 2025 Sovereigns and Britannias. Available for immediate vaulting.",
-    url: "#",
-    publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(), // 18 hours ago
+    summary: "Join Andre and Danielle as they explore investing and indulging in precious metals and fine jewelry.",
+    url: "https://open.spotify.com/show/263hqyQ6uyijeNtrOgTmS7",
+    spotifyUrl: "https://open.spotify.com/show/263hqyQ6uyijeNtrOgTmS7",
+    publishedAt: new Date().toISOString(),
   },
   {
-    id: 'bb-002',
-    title: "Platinum Supply Deficits Forecast to Widen Through 2025",
-    source: "Bloomberg",
-    summary: "Industrial demand for platinum in automotive catalysts is outstripping mine supply from South Africa.",
-    url: "#",
-    publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), // 1 day, 2 hours ago
-  },
-  {
-    id: 'al-003',
-    title: "Blog: The Ratio Trade - Silver vs Gold",
+    id: 'fallback-3',
+    type: 'youtube',
+    title: "Watch Alex Lexington on YouTube",
     source: "Alex Lexington",
-    summary: "Why the current gold-silver ratio might present a historic buying opportunity for white metal investors.",
-    url: "#",
-    publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
+    summary: "Videos on precious metals, market updates, and behind-the-scenes at Alex Lexington.",
+    url: "https://www.youtube.com/@alexlexingtonnetwork",
+    publishedAt: new Date().toISOString(),
   }
 ];
 
-export const fetchMarketNews = async (): Promise<NewsItem[]> => {
-  // Simulate API latency
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // In a real app, replace this with:
-  // const response = await fetch('YOUR_RSS_TO_JSON_ENDPOINT');
-  // const data = await response.json();
-  // return data.map(...)
+const DEFAULT_MEDIA_LINKS: MediaLinks = {
+  spotify: 'https://open.spotify.com/show/263hqyQ6uyijeNtrOgTmS7',
+  youtube: 'https://www.youtube.com/@alexlexingtonnetwork',
+  instagram: 'https://www.instagram.com/alex.lexington.precious.metals/',
+  tiktok: 'https://www.tiktok.com/@alex_lexington_network'
+};
 
-  // Return mock data sorted by date (newest first)
-  return MOCK_NEWS_DATA.sort((a, b) => 
-    new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
+// In-memory cache to avoid hammering the worker on every page load
+let cachedResponse: { data: MediaFeedResponse; timestamp: number } | null = null;
+const CLIENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export const fetchMarketNews = async (type?: MediaType, limit: number = 15): Promise<NewsItem[]> => {
+  // Check client-side cache
+  const cacheKey = `${type || 'all'}_${limit}`;
+  if (cachedResponse && Date.now() - cachedResponse.timestamp < CLIENT_CACHE_TTL) {
+    let items = cachedResponse.data.items;
+    if (type) items = items.filter(i => i.type === type);
+    return items.slice(0, limit);
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    params.set('limit', String(limit));
+
+    const url = `${MEDIA_FEED_URL}?${params.toString()}`;
+    const response = await fetch(url);
+
+    if (!response.ok) throw new Error(`Media feed returned ${response.status}`);
+
+    const data: MediaFeedResponse = await response.json();
+
+    // Cache the full response
+    cachedResponse = { data, timestamp: Date.now() };
+
+    if (data.errors && data.errors.length > 0) {
+      console.warn('Some media feeds had errors:', data.errors);
+    }
+
+    return data.items;
+  } catch (error) {
+    console.warn('Failed to fetch media feed, using fallback:', error);
+    return FALLBACK_DATA;
+  }
+};
+
+export const fetchMediaLinks = async (): Promise<MediaLinks> => {
+  // If we have cached data, use those links
+  if (cachedResponse) {
+    return cachedResponse.data.mediaLinks;
+  }
+
+  // Otherwise try a quick fetch
+  try {
+    const response = await fetch(`${MEDIA_FEED_URL}?limit=1`);
+    if (response.ok) {
+      const data: MediaFeedResponse = await response.json();
+      return data.mediaLinks;
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  return DEFAULT_MEDIA_LINKS;
 };

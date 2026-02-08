@@ -5,15 +5,26 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { convertFloat32To16BitPCMBase64, decodeAudioData } from '../utils/audioUtils';
 import { fetchChartHistory, HistoricalDataPoint } from '../services/marketData';
 import { fetchMarketNews } from '../services/newsService';
-import { calculateItemValue } from '../utils/calculations';
+import { calculateItemValue, parsePurity, getStandardWeight } from '../utils/calculations';
+import { matchToCatalog } from '../services/productService';
 import { METAL_COLORS } from '../constants';
 import { BullionItem, SpotPrices } from '../types';
+
+interface CustomerContext {
+  customerId?: string;
+  alAccountNumber?: string;
+  name?: string;
+  fundingBalance?: number;
+  cashBalance?: number;
+  pendingDeposits?: number;
+}
 
 interface LiveChatProps {
   onClose: () => void;
   inventory: BullionItem[];
   prices: SpotPrices;
   initialPrompt?: string; // Pre-filled prompt from suggestions
+  customerContext?: CustomerContext; // Customer data for Maverick context
 }
 
 interface ChartState {
@@ -55,7 +66,61 @@ const marketNewsTool: FunctionDeclaration = {
   parameters: { type: Type.OBJECT, properties: {} }
 };
 
-export default function LiveChat({ onClose, inventory, prices, initialPrompt }: LiveChatProps) {
+const coinMeltValueTool: FunctionDeclaration = {
+  name: "getCoinMeltValue",
+  description: "Look up a coin or bullion bar from the precious metals database and calculate its melt value at current spot prices. Use this when the user asks about a coin's value, melt value, metal content, or 'what is this coin/bar worth'.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: "The coin or bar name to search for (e.g. 'Krugerrand', 'Morgan Dollar', 'Silver Eagle', 'PAMP gold bar')"
+      },
+      quantity: {
+        type: Type.NUMBER,
+        description: "Number of coins/bars. Defaults to 1."
+      }
+    },
+    required: ["query"]
+  }
+};
+
+const scrapMeltTool: FunctionDeclaration = {
+  name: "calculateScrapMelt",
+  description: "Calculate the melt value of custom or scrap precious metals. Use this when the user asks about the value of jewelry, scrap gold/silver, or a custom weight/purity combination (e.g. '10 grams of 14k gold', '5 oz of sterling silver').",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      metal: {
+        type: Type.STRING,
+        description: "The metal type: gold, silver, platinum, or palladium"
+      },
+      weight: {
+        type: Type.NUMBER,
+        description: "The weight amount"
+      },
+      unit: {
+        type: Type.STRING,
+        description: "Weight unit: oz (troy ounces), g (grams), or kg (kilograms)"
+      },
+      purity: {
+        type: Type.STRING,
+        description: "Purity as a string: '.999', '.9999', '14k', '18k', '22k', '24k', '.925', '.900', '90%', '58.5%', etc."
+      }
+    },
+    required: ["metal", "weight", "unit", "purity"]
+  }
+};
+
+// Quick action definitions for Maverick
+const MAVERICK_QUICK_ACTIONS = [
+  { id: 'balance', label: 'Check Balance', icon: '💰', prompt: "What's my current account balance?" },
+  { id: 'quote', label: 'Get Quote', icon: '📊', prompt: 'Give me a quote for buying 1 oz of gold at current spot price.' },
+  { id: 'portfolio', label: 'Portfolio', icon: '📈', prompt: "How is my portfolio performing? Show me a breakdown." },
+  { id: 'market', label: 'Market News', icon: '📰', prompt: "What's happening in the precious metals market today?" },
+];
+
+export default function LiveChat({ onClose, inventory, prices, initialPrompt, customerContext }: LiveChatProps) {
   const [status, setStatus] = useState<'connecting' | 'listening' | 'speaking' | 'error' | 'ready'>('connecting');
   const [errorMessage, setErrorMessage] = useState('');
   const [displayedChart, setDisplayedChart] = useState<ChartState | null>(null);
@@ -88,37 +153,64 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // System Prompt Construction
+  // System Prompt Construction - MAVERICK AI Concierge
+  const portfolioValue = inventory.reduce((acc, item) => acc + calculateItemValue(item, prices[item.metalType] || 0), 0);
+
   const systemInstruction = `
-    You are Maroon, the advanced AI concierge for Alex Lexington, a premier precious metals dealer based in Atlanta.
-    Your voice is professional, knowledgeable, yet warm and concise (suitable for voice conversation).
+    You are MAVERICK, the premium AI concierge for Alex Lexington, Atlanta's premier precious metals dealer.
+    Your persona is sophisticated, knowledgeable, and personable - like a trusted advisor at a private bank.
+
+    **Your Identity:**
+    - Name: Maverick (always introduce yourself as Maverick on first greeting)
+    - Tone: Confident, warm, and concise (optimized for voice conversation)
+    - Style: Address the customer by name when available, be proactive with helpful suggestions
+
+    **Customer Information:**
+    ${customerContext?.name ? `Name: ${customerContext.name}` : 'Name: Valued Customer'}
+    ${customerContext?.alAccountNumber ? `Account: ${customerContext.alAccountNumber}` : ''}
+    ${customerContext?.fundingBalance !== undefined ? `Funding Balance: $${customerContext.fundingBalance.toLocaleString()}` : ''}
+    ${customerContext?.cashBalance !== undefined ? `Cash Balance: $${customerContext.cashBalance.toLocaleString()}` : ''}
+    ${customerContext?.pendingDeposits ? `Pending Deposits: $${customerContext.pendingDeposits.toLocaleString()}` : ''}
 
     **Current Market Data (Real-time):**
-    Gold: $${prices.gold?.toLocaleString()}
-    Silver: $${prices.silver?.toLocaleString()}
-    Platinum: $${prices.platinum?.toLocaleString()}
-    Palladium: $${prices.palladium?.toLocaleString()}
+    Gold: $${prices.gold?.toLocaleString()}/oz
+    Silver: $${prices.silver?.toLocaleString()}/oz
+    Platinum: $${prices.platinum?.toLocaleString()}/oz
+    Palladium: $${prices.palladium?.toLocaleString()}/oz
 
-    **User's Portfolio:**
-    Total Value: $${inventory.reduce((acc, item) => acc + calculateItemValue(item, prices[item.metalType] || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
-    Item Count: ${inventory.length}
-    Key Items: ${inventory.slice(0, 5).map(i => `${i.quantity}x ${i.name}`).join(', ')}${inventory.length > 5 ? '...' : ''}
+    **Customer's Portfolio:**
+    Total Value: $${portfolioValue.toLocaleString(undefined, {minimumFractionDigits: 2})}
+    Holdings: ${inventory.length} items
+    ${inventory.length > 0 ? `Top Holdings: ${inventory.slice(0, 5).map(i => `${i.quantity}x ${i.name}`).join(', ')}${inventory.length > 5 ? '...' : ''}` : 'No holdings yet - suggest they start with gold'}
 
     **Your Capabilities:**
-    1. Analyze portfolio performance based on the data above.
-    2. Provide real-time market updates and news (call getMarketNews tool).
-    3. Discuss historical price trends (call getHistoricalPrices tool).
-    4. Answer questions about specific coins (Eagles, Maples, Buffaloes) and bars.
+    1. Check balances and account status
+    2. Provide instant price quotes for buying/selling
+    3. Analyze portfolio performance and composition
+    4. Fetch real-time market news (call getMarketNews tool)
+    5. Show historical price charts (call getHistoricalPrices tool)
+    6. Answer questions about products (coins, bars, storage options)
+    7. Look up any coin or bar's melt value from the database (call getCoinMeltValue tool)
+    8. Calculate scrap/jewelry melt value for any metal/weight/purity (call calculateScrapMelt tool)
 
     **About Alex Lexington:**
-    - Trusted family-owned bullion dealer in Atlanta.
-    - We buy and sell gold, silver, platinum, diamonds, and luxury watches.
-    - We offer secure vault storage and insured shipping.
+    - Trusted family-owned bullion dealer in Atlanta since 1975
+    - Services: Buy/Sell gold, silver, platinum, diamonds, luxury watches
+    - Secure vault storage with insurance
+    - 0% fees when paying with funded balance
+    - Same-day shipping or in-store pickup available
 
-    **Rules:**
-    - Keep answers short and conversational.
-    - If asked about future prices, cite market news or trends, do not give financial advice.
-    - If asked "How much do I have?", refer to the Portfolio Value provided above.
+    **Conversation Rules:**
+    - Keep responses SHORT (2-3 sentences max for voice)
+    - Be proactive: "Would you like me to..."
+    - If asked about balance, give the funding balance first
+    - For purchases, remind them about 0% fees with funded balance
+    - Never give financial advice, but cite trends/news when asked about prices
+    - If they say "buy" or "sell", confirm the metal, amount, and price before proceeding
+    - When asked about a coin's value or "what is this worth", use getCoinMeltValue to look it up
+    - When asked about scrap, jewelry, or custom metal pieces, use calculateScrapMelt
+    - Always present melt values clearly: coin name, pure content, spot price, and melt value
+    - The database covers 95+ coins, bars, and bullion items — if no match is found, suggest similar names
   `;
 
   // Start Session Function (Can be called automatically or manually)
@@ -146,7 +238,7 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
           model: 'gemini-2.5-flash-native-audio-preview-09-2025',
           config: {
             responseModalities: [Modality.AUDIO],
-            tools: [{ functionDeclarations: [historicalPricesTool, marketNewsTool] }],
+            tools: [{ functionDeclarations: [historicalPricesTool, marketNewsTool, coinMeltValueTool, scrapMeltTool] }],
             inputAudioTranscription: {}, // Enable user transcription
             outputAudioTranscription: {}, // Enable model transcription
             speechConfig: {
@@ -320,6 +412,96 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
                           setIsToolLoading(false);
                           setToolLoadingMessage('');
                       }
+                  } else if (call.name === 'getCoinMeltValue') {
+                      const args = call.args as any;
+                      const query = args.query || '';
+                      const quantity = Math.max(1, Math.round(args.quantity || 1));
+
+                      setIsToolLoading(true);
+                      setToolLoadingMessage('Looking up coin...');
+
+                      try {
+                          // Extract metal hint from query for better matching
+                          const metalHint = ['gold', 'silver', 'platinum', 'palladium'].find(m => query.toLowerCase().includes(m));
+                          const match = matchToCatalog(query, metalHint);
+                          if (match && match.product) {
+                              const p = match.product;
+                              const spotPrice = prices[p.type] || 0;
+                              const purity = parsePurity(p.purity);
+                              const weightOz = getStandardWeight(p.defaultWeight, p.defaultUnit);
+                              const pureOz = weightOz * purity;
+                              const meltPerUnit = spotPrice * pureOz;
+                              const totalMelt = meltPerUnit * quantity;
+
+                              responses.push({
+                                  id: call.id,
+                                  name: call.name,
+                                  response: {
+                                      result: `Found: ${p.name}\nMetal: ${p.type}\nWeight: ${p.defaultWeight} ${p.defaultUnit}\nPurity: ${p.purity} (${(purity * 100).toFixed(2)}%)\nPure Content: ${pureOz.toFixed(4)} oz\nSpot Price: $${spotPrice.toLocaleString()}/oz\nMelt Value Per Unit: $${meltPerUnit.toFixed(2)}\nQuantity: ${quantity}\nTotal Melt Value: $${totalMelt.toFixed(2)}\nMint: ${p.mint}\nMatch Confidence: ${(match.confidence * 100).toFixed(0)}%`
+                                  }
+                              });
+                          } else {
+                              responses.push({
+                                  id: call.id,
+                                  name: call.name,
+                                  response: { result: `No match found for "${query}" in the precious metals database. This may not be a precious metal coin/bar, or try a different name (e.g. "American Gold Eagle", "Morgan Dollar", "Krugerrand").` }
+                              });
+                          }
+                      } catch (e) {
+                          responses.push({
+                              id: call.id,
+                              name: call.name,
+                              response: { error: "Failed to look up coin." }
+                          });
+                      } finally {
+                          setIsToolLoading(false);
+                          setToolLoadingMessage('');
+                      }
+                  } else if (call.name === 'calculateScrapMelt') {
+                      const args = call.args as any;
+                      const metal = (args.metal || 'gold').toLowerCase();
+                      const weight = Math.max(0, args.weight || 0);
+                      const unit = args.unit || 'oz';
+                      const purityStr = args.purity || '.999';
+                      const validMetals = ['gold', 'silver', 'platinum', 'palladium'];
+
+                      setIsToolLoading(true);
+                      setToolLoadingMessage('Calculating melt value...');
+
+                      try {
+                          if (!validMetals.includes(metal)) {
+                              responses.push({
+                                  id: call.id,
+                                  name: call.name,
+                                  response: { result: `"${metal}" is not a supported precious metal. Supported metals: gold, silver, platinum, palladium.` }
+                              });
+                              setIsToolLoading(false);
+                              setToolLoadingMessage('');
+                              continue;
+                          }
+                          const spotPrice = prices[metal] || 0;
+                          const purityFactor = parsePurity(purityStr);
+                          const weightOz = getStandardWeight(weight, unit);
+                          const pureOz = weightOz * purityFactor;
+                          const meltValue = spotPrice * pureOz;
+
+                          responses.push({
+                              id: call.id,
+                              name: call.name,
+                              response: {
+                                  result: `Metal: ${metal}\nWeight: ${weight} ${unit} (${weightOz.toFixed(4)} troy oz)\nPurity: ${purityStr} (${(purityFactor * 100).toFixed(2)}%)\nPure Content: ${pureOz.toFixed(4)} oz\nSpot Price: $${spotPrice.toLocaleString()}/oz\nMelt Value: $${meltValue.toFixed(2)}`
+                              }
+                          });
+                      } catch (e) {
+                          responses.push({
+                              id: call.id,
+                              name: call.name,
+                              response: { error: "Failed to calculate melt value." }
+                          });
+                      } finally {
+                          setIsToolLoading(false);
+                          setToolLoadingMessage('');
+                      }
                   }
                 }
 
@@ -456,9 +638,15 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-dark-900/95 backdrop-blur-xl animate-fade-in">
       <div className="flex flex-col items-center justify-between w-full h-full p-4 md:p-8 text-center relative overflow-hidden">
         
-        {/* Header */}
-        <div className="absolute top-8 left-0 right-0 flex justify-center z-10">
-            <span className="text-xs font-bold tracking-[0.2em] text-gold-500 uppercase">Maroon Live</span>
+        {/* Header - Maverick Branding */}
+        <div className="absolute top-6 left-0 right-0 flex flex-col items-center z-10">
+            <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center shadow-lg shadow-gold-500/30">
+                    <span className="text-navy-900 text-xs font-bold">M</span>
+                </div>
+                <span className="text-lg font-bold tracking-tight text-white">Maverick</span>
+            </div>
+            <span className="text-[10px] font-medium tracking-[0.2em] text-gold-500/60 uppercase">AI Concierge</span>
         </div>
 
         {/* --- Top Area: Orb and Status --- */}
@@ -512,13 +700,17 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
                 <div className="animate-fade-in">
                     <h2 className="text-2xl font-bold text-white mb-2 transition-opacity duration-300">
                         {status === 'connecting' && "Connecting..."}
-                        {status === 'listening' && "Maroon is listening..."}
-                        {status === 'speaking' && "Maroon is speaking"}
+                        {status === 'listening' && "Listening..."}
+                        {status === 'speaking' && "Maverick is speaking"}
                         {status === 'error' && "Microphone Access"}
                     </h2>
-                    
+
                     <p className="text-sm text-gray-400 max-w-xs mx-auto">
-                        {status === 'error' ? errorMessage : "Ask about your portfolio or market trends."}
+                        {status === 'error' ? errorMessage : (
+                            customerContext?.name
+                                ? `Hey ${customerContext.name.split(' ')[0]}, how can I help?`
+                                : "Ask about your balance, portfolio, or market."
+                        )}
                     </p>
                 </div>
             )}
@@ -583,6 +775,24 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
           </div>
         )}
 
+        {/* Quick Action Buttons (show when ready and no messages yet) */}
+        {messages.length === 0 && (status === 'listening' || status === 'speaking') && (
+          <div className="w-full max-w-lg mx-auto px-4 mb-4 shrink-0">
+            <div className="flex flex-wrap justify-center gap-2">
+              {MAVERICK_QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.id}
+                  onClick={() => sendTextMessage(action.prompt)}
+                  className="px-4 py-2 bg-white/5 hover:bg-gold-500/20 border border-white/10 hover:border-gold-500/30 rounded-full text-sm text-white/80 hover:text-gold-400 transition-all flex items-center gap-2 active:scale-95"
+                >
+                  <span>{action.icon}</span>
+                  <span>{action.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Text Input (for users without mic or who prefer typing) */}
         <div className="w-full max-w-lg mx-auto px-4 shrink-0">
           <form onSubmit={handleTextSubmit} className="flex items-center gap-2">
@@ -590,7 +800,7 @@ export default function LiveChat({ onClose, inventory, prices, initialPrompt }: 
               type="text"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder={status === 'listening' ? "Type a message..." : "Waiting for connection..."}
+              placeholder={status === 'listening' ? "Ask Maverick anything..." : "Waiting for connection..."}
               disabled={status !== 'listening' && status !== 'speaking'}
               className="flex-1 px-4 py-3 bg-dark-800/80 border border-white/10 rounded-full text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gold-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
             />

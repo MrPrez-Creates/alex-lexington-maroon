@@ -58,6 +58,8 @@ import AdminSupport from './components/AdminSupport';
 import AdminRisk from './components/AdminRisk';
 import FundingWallet from './components/FundingWallet';
 import FundAccountScreen from './components/FundAccountScreen';
+import MaverickIntro, { useMaverickIntro } from './components/MaverickIntro';
+import BalanceCheckout, { CheckoutSuccess } from './components/BalanceCheckout';
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -95,7 +97,11 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showLiveChat, setShowLiveChat] = useState(false);
+  const [showMaverickIntro, setShowMaverickIntro] = useState(false);
   const [liveChatPrompt, setLiveChatPrompt] = useState<string | undefined>(undefined);
+
+  // Maverick intro state
+  const { hasSeenIntro: hasSeenMaverickIntro, markAsSeen: markMaverickIntroSeen } = useMaverickIntro();
   
   // Specific Modal States
   const [editingItem, setEditingItem] = useState<BullionItem | null>(null);
@@ -123,6 +129,18 @@ export default function App() {
 
   // ERP Tab State
   const [erpTab, setErpTab] = useState<'risk' | 'crm' | 'ai'>('risk');
+
+  // Checkout State
+  const [checkoutConfig, setCheckoutConfig] = useState<{
+    orderId: string;
+    orderTotal: number;
+    orderItems: Array<{ name: string; quantity: number; price: number; weight_ozt?: number; metal?: string }>;
+  } | null>(null);
+  const [checkoutResult, setCheckoutResult] = useState<{
+    order_id: string;
+    transaction_id?: string;
+    amount?: number;
+  } | null>(null);
 
   // --- Helpers ---
 
@@ -387,8 +405,20 @@ export default function App() {
   };
 
   // Open LiveChat with optional initial prompt
+  // Shows Maverick intro first if user hasn't seen it
   const openLiveChat = (initialPrompt?: string) => {
       setLiveChatPrompt(initialPrompt);
+      if (!hasSeenMaverickIntro) {
+          setShowMaverickIntro(true);
+      } else {
+          setShowLiveChat(true);
+      }
+  };
+
+  // Handle Maverick intro completion
+  const handleMaverickIntroComplete = () => {
+      markMaverickIntroSeen();
+      setShowMaverickIntro(false);
       setShowLiveChat(true);
   };
 
@@ -470,10 +500,14 @@ export default function App() {
   if (view === 'landing' && !user) {
       return (
           <>
-            <LandingPage 
-                onEnterApp={() => setShowAuthModal(true)} 
-                user={user} 
+            <LandingPage
+                onEnterApp={() => setShowAuthModal(true)}
+                onActivateAI={() => {
+                  setShowAuthModal(true);
+                }}
+                user={user}
                 prices={prices}
+                inventory={inventory}
             />
             <AuthModal 
                 isOpen={showAuthModal} 
@@ -667,6 +701,47 @@ export default function App() {
          {view === 'contact-support' && <ContactSupport userProfile={userProfile} />}
          {view === 'admin-support' && <AdminSupport />}
          {view === 'admin-risk' && <AdminRisk prices={prices} />}
+
+         {view === 'checkout' && checkoutConfig && (
+           <div className="max-w-lg mx-auto px-4 py-6">
+             <BalanceCheckout
+               orderId={checkoutConfig.orderId}
+               customerId={customerId || '0'}
+               orderTotal={checkoutConfig.orderTotal}
+               orderDetails={{
+                 items: checkoutConfig.orderItems.map(i => ({
+                   name: i.name,
+                   quantity: i.quantity,
+                   weight_ozt: i.weight_ozt || 0,
+                   price: i.price,
+                 })),
+                 fulfillment: 'vault',
+               }}
+               onSuccess={(result) => {
+                 setCheckoutResult({ ...result, amount: checkoutConfig.orderTotal });
+                 setCheckoutConfig(null);
+               }}
+               onCancel={() => {
+                 setCheckoutConfig(null);
+                 setView('dashboard');
+               }}
+               onFundAccount={() => setView('fund-account')}
+             />
+           </div>
+         )}
+
+         {/* Checkout Success Overlay */}
+         {checkoutResult && (
+           <CheckoutSuccess
+             orderNumber={checkoutResult.order_id}
+             amount={checkoutResult.amount || 0}
+             fulfillment="vault"
+             onClose={() => {
+               setCheckoutResult(null);
+               setView('dashboard');
+             }}
+           />
+         )}
       </main>
 
       {/* Bottom Navigation */}
@@ -854,13 +929,29 @@ export default function App() {
         }}
       />
 
-      {/* Live Chat Overlay */}
+      {/* Maverick AI Intro (First-time users) */}
+      {showMaverickIntro && (
+        <MaverickIntro
+            onComplete={handleMaverickIntroComplete}
+            customerName={apiCustomer?.name || userProfile?.name}
+        />
+      )}
+
+      {/* Live Chat Overlay - Maverick AI Concierge */}
       {showLiveChat && (
         <LiveChat
             onClose={closeLiveChat}
             inventory={inventory}
             prices={prices}
             initialPrompt={liveChatPrompt}
+            customerContext={{
+              customerId: customerId || undefined,
+              alAccountNumber: apiCustomer?.alAccountNumber || undefined,
+              name: apiCustomer?.name || userProfile?.name || undefined,
+              fundingBalance: apiCustomer?.fundingBalance || 0,
+              cashBalance: apiCustomer?.cashBalance || 0,
+              pendingDeposits: apiCustomer?.pendingDeposits || 0,
+            }}
         />
       )}
 

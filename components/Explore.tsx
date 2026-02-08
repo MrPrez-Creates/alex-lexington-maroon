@@ -105,7 +105,7 @@ const Explore: React.FC<ExploreProps> = ({ onNavigate, onStartChat }) => {
         </div>
 
         {/* Documents Widget */}
-        <div 
+        <div
             onClick={() => onNavigate('documents')}
             className="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-navy-700 hover:border-blue-500/50 transition-all cursor-pointer group relative overflow-hidden"
         >

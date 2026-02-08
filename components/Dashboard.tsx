@@ -235,7 +235,6 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
                                 Portfolio
                             </button>
                             {Object.values(MetalType)
-                                .filter(m => m !== MetalType.COPPER)
                                 .map((m) => (
                                 <button 
                                    key={m}

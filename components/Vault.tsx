@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { BullionItem, SpotPrices, MetalType, AssetForm } from '../types';
 import { METAL_COLORS } from '../constants';
-import { calculateItemValue } from '../utils/calculations';
+import { calculateItemValue, calculatePureWeight } from '../utils/calculations';
 
 interface VaultProps {
   inventory: BullionItem[];
@@ -112,11 +112,34 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
     return result;
   }, [inventory, filterMetal, filterForm, sortOption, prices]);
 
+  // Calculate total melt value and pure weight across all holdings
+  const vaultSummary = useMemo(() => {
+    let totalMeltValue = 0;
+    let totalCostBasis = 0;
+    const metalBreakdown: Record<string, { pureOz: number; value: number }> = {};
+
+    for (const item of inventory) {
+      const spotPrice = prices[item.metalType] || 0;
+      const meltValue = calculateItemValue(item, spotPrice);
+      const pureOz = calculatePureWeight(item);
+      totalMeltValue += meltValue;
+      totalCostBasis += item.purchasePrice;
+
+      if (!metalBreakdown[item.metalType]) {
+        metalBreakdown[item.metalType] = { pureOz: 0, value: 0 };
+      }
+      metalBreakdown[item.metalType].pureOz += pureOz;
+      metalBreakdown[item.metalType].value += meltValue;
+    }
+
+    return { totalMeltValue, totalCostBasis, metalBreakdown };
+  }, [inventory, prices]);
+
   const isLocked = selectedItem ? isMaroonProduct(selectedItem) : false;
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 space-y-6">
-      
+
       {/* Header & Filters */}
       <div className="space-y-4">
           <div className="flex justify-between items-center">
@@ -151,6 +174,33 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
             </select>
           </div>
       </div>
+
+      {/* Total Melt Value Summary */}
+      {inventory.length > 0 && (
+        <div className="bg-gradient-to-r from-navy-800 to-navy-900 dark:from-navy-800 dark:to-navy-900 rounded-xl p-4 border border-gold-500/20 shadow-lg">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Melt Value</span>
+            <span className="text-xl font-mono font-bold text-gold-500">
+              ${vaultSummary.totalMeltValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar">
+            {Object.entries(vaultSummary.metalBreakdown).map(([metal, data]) => (
+              <div key={metal} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5 shrink-0">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: METAL_COLORS[metal] || '#999' }} />
+                <span className="text-[10px] text-gray-300 capitalize">{metal}</span>
+                <span className="text-[10px] text-white font-mono font-bold">{data.pureOz.toFixed(2)} oz</span>
+              </div>
+            ))}
+          </div>
+          {vaultSummary.totalCostBasis > 0 && (
+            <div className="mt-2 pt-2 border-t border-white/5 flex justify-between items-center">
+              <span className="text-[10px] text-gray-500">Cost Basis</span>
+              <span className="text-xs text-gray-400 font-mono">${vaultSummary.totalCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Inventory List */}
       <div className="space-y-3 pb-20">
@@ -267,6 +317,16 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
                  <div className="flex justify-between border-b border-gray-200 dark:border-navy-700 pb-2">
                     <span className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">Weight</span>
                     <span className="text-navy-900 dark:text-white font-mono text-sm">{displayWeight(selectedItem)}</span>
+                 </div>
+                 <div className="flex justify-between border-b border-gray-200 dark:border-navy-700 pb-2">
+                    <span className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">Pure Content</span>
+                    <span className="text-navy-900 dark:text-white font-mono text-sm">{calculatePureWeight(selectedItem).toFixed(4)} oz</span>
+                 </div>
+                 <div className="flex justify-between border-b border-gray-200 dark:border-navy-700 pb-2">
+                    <span className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">Melt Value</span>
+                    <span className="text-gold-500 font-mono text-sm font-bold">
+                      ${calculateItemValue(selectedItem, prices[selectedItem.metalType] || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </span>
                  </div>
                  <div className="flex justify-between border-b border-gray-200 dark:border-navy-700 pb-2">
                     <span className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">Cost Basis</span>

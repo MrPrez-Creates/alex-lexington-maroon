@@ -329,7 +329,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                                             className="bg-transparent text-2xl font-serif text-white font-medium focus:outline-none cursor-pointer capitalize appearance-none pr-8"
                                             style={{ backgroundImage: 'none' }}
                                         >
-                                            {Object.values(MetalType).filter(m => m !== MetalType.COPPER).map(m => (
+                                            {Object.values(MetalType).map(m => (
                                                 <option key={m} value={m} className="bg-navy-900">{m}</option>
                                             ))}
                                         </select>
@@ -400,7 +400,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                                 <div className="space-y-4">
                                     {/* Tabs */}
                                     <div className="flex gap-2 pb-2 overflow-x-auto no-scrollbar">
-                                        {Object.values(MetalType).filter(m => m !== MetalType.COPPER).map(m => (
+                                        {Object.values(MetalType).map(m => (
                                             <button
                                                 key={m}
                                                 onClick={() => setActiveSellTab(m)}

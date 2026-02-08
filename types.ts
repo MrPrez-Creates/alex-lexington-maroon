@@ -3,8 +3,7 @@ export enum MetalType {
   GOLD = 'gold',
   SILVER = 'silver',
   PLATINUM = 'platinum',
-  PALLADIUM = 'palladium',
-  COPPER = 'copper'
+  PALLADIUM = 'palladium'
 }
 
 export enum AssetForm {
@@ -78,7 +77,7 @@ export interface ChartDataPoint {
   value: number;
 }
 
-export type ViewState = 'landing' | 'dashboard' | 'vault' | 'wallet' | 'fund-account' | 'add' | 'settings' | 'history' | 'documents' | 'customers' | 'payment-methods' | 'market' | 'contact-support' | 'admin-support' | 'admin-risk' | 'explore';
+export type ViewState = 'landing' | 'dashboard' | 'vault' | 'wallet' | 'fund-account' | 'add' | 'settings' | 'history' | 'documents' | 'customers' | 'payment-methods' | 'market' | 'contact-support' | 'admin-support' | 'admin-risk' | 'explore' | 'checkout';
 
 export interface ProductTemplate {
   name: string;
@@ -241,6 +240,9 @@ export interface SharedCustomer {
   kycStatus: 'VERIFIED' | 'PENDING' | 'FAILED' | 'unverified';
   maroonUserId: string; // Firebase Auth UID - links to Maroon app user
   cashBalance: number;
+  fundingBalance?: number; // Balance available for purchases (0% fee)
+  pendingDeposits?: number; // Deposits in transit
+  alAccountNumber?: string; // AL-XXXXXX account identifier
   lifetimeBuyTotal: number;
   createdAt: string;
   updatedAt: string;

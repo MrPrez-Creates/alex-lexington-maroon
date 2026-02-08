@@ -1,651 +1,1225 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import LiveTicker from './LiveTicker';
-import { SpotPrices } from '../types';
+import { SpotPrices, MetalType, BullionItem } from '../types';
 import { MOCK_SPOT_PRICES } from '../constants';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { fetchMarketNews, fetchMediaLinks, NewsItem, MediaLinks } from '../services/newsService';
 
 interface LandingPageProps {
   onEnterApp: () => void;
   onActivateAI?: () => void;
   user?: any;
   prices?: SpotPrices;
+  inventory?: BullionItem[];
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, user, prices }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, user, prices, inventory }) => {
   const [scrollY, setScrollY] = useState(0);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [showMarketPreview, setShowMarketPreview] = useState(false);
-  const [previewMetal, setPreviewMetal] = useState<'gold' | 'silver'>('gold');
+  const [mediaItems, setMediaItems] = useState<NewsItem[]>([]);
+  const [mediaLinks, setMediaLinks] = useState<MediaLinks | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
-    const handleMouseMove = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY });
-    
     window.addEventListener('scroll', handleScroll);
-    window.addEventListener('mousemove', handleMouseMove);
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Fetch real Alex Lexington Network media feed
+  useEffect(() => {
+    let cancelled = false;
+    const loadMedia = async () => {
+      try {
+        const [items, links] = await Promise.all([
+          fetchMarketNews(undefined, 6),
+          fetchMediaLinks(),
+        ]);
+        if (!cancelled) {
+          setMediaItems(items);
+          setMediaLinks(links);
+        }
+      } catch (e) {
+        console.warn('Failed to load media feed:', e);
+      } finally {
+        if (!cancelled) setMediaLoading(false);
+      }
     };
+    loadMedia();
+    return () => { cancelled = true; };
   }, []);
 
-  // Generate random particles once
-  const particles = useMemo(() => {
-    return [...Array(20)].map((_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      width: `${Math.random() * 3 + 1}px`,
-      height: `${Math.random() * 3 + 1}px`,
-      duration: `${Math.random() * 10 + 15}s`,
-      delay: `${Math.random() * 10}s`,
-      opacity: Math.random() * 0.5 + 0.1
-    }));
-  }, []);
+  const livePrices = prices || MOCK_SPOT_PRICES;
 
-  // Mock data for the preview chart - appealing upward trend
-  const previewChartData = useMemo(() => {
-    const data = [];
-    let value = previewMetal === 'gold' ? 2400 : 28; // Start around gold/silver price
-    const volatility = previewMetal === 'gold' ? 40 : 0.5;
-    for (let i = 0; i < 30; i++) {
-        const change = (Math.random() * volatility) - (volatility * 0.35); // Net positive bias
-        value += change;
-        data.push({ name: `Day ${i+1}`, value });
+  // Format price helper
+  const fmt = (val: number) => val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Portfolio data: use REAL inventory when user is logged in, demo otherwise
+  const portfolioData = useMemo(() => {
+    if (user && inventory && inventory.length > 0) {
+      // Aggregate real holdings by metal type
+      const metals: Record<string, { oz: number; val: number }> = {};
+      inventory.forEach(item => {
+        const mt = item.metalType?.toLowerCase() || 'gold';
+        if (!metals[mt]) metals[mt] = { oz: 0, val: 0 };
+        const totalOz = item.weightAmount * item.quantity;
+        metals[mt].oz += totalOz;
+        metals[mt].val += totalOz * (livePrices[mt] || 0);
+      });
+      return {
+        isReal: true,
+        holdings: [
+          metals.gold ? { sym: 'Au', name: 'Gold', metal: MetalType.GOLD, oz: metals.gold.oz, val: metals.gold.val, color: '#FFD700', bgColor: 'rgba(255,215,0,0.12)' } : null,
+          metals.silver ? { sym: 'Ag', name: 'Silver', metal: MetalType.SILVER, oz: metals.silver.oz, val: metals.silver.val, color: '#C0C0C0', bgColor: 'rgba(192,192,192,0.12)' } : null,
+          metals.platinum ? { sym: 'Pt', name: 'Platinum', metal: MetalType.PLATINUM, oz: metals.platinum.oz, val: metals.platinum.val, color: '#B4B4BE', bgColor: 'rgba(180,180,190,0.12)' } : null,
+          metals.palladium ? { sym: 'Pd', name: 'Palladium', metal: MetalType.PALLADIUM, oz: metals.palladium.oz, val: metals.palladium.val, color: '#D4A574', bgColor: 'rgba(212,165,116,0.12)' } : null,
+        ].filter(Boolean) as { sym: string; name: string; metal: MetalType; oz: number; val: number; color: string; bgColor: string }[],
+      };
     }
-    return data;
-  }, [previewMetal]);
+    // Demo data for non-logged-in visitors
+    const goldOz = 12.4;
+    const silverOz = 310;
+    const platOz = 3.23;
+    return {
+      isReal: false,
+      holdings: [
+        { sym: 'Au', name: 'Gold', metal: MetalType.GOLD, oz: goldOz, val: goldOz * (livePrices[MetalType.GOLD] || 0), color: '#FFD700', bgColor: 'rgba(255,215,0,0.12)' },
+        { sym: 'Ag', name: 'Silver', metal: MetalType.SILVER, oz: silverOz, val: silverOz * (livePrices[MetalType.SILVER] || 0), color: '#C0C0C0', bgColor: 'rgba(192,192,192,0.12)' },
+        { sym: 'Pt', name: 'Platinum', metal: MetalType.PLATINUM, oz: platOz, val: platOz * (livePrices[MetalType.PLATINUM] || 0), color: '#B4B4BE', bgColor: 'rgba(180,180,190,0.12)' },
+      ],
+    };
+  }, [user, inventory, livePrices]);
+
+  const totalVal = portfolioData.holdings.reduce((sum, h) => sum + h.val, 0);
+
+  // Build Maverick demo chat using real data when available
+  const maverickQuestion = useMemo(() => {
+    if (user && portfolioData.isReal && portfolioData.holdings.length > 0) {
+      const primary = portfolioData.holdings[0];
+      return {
+        question: `What is my ${primary.name.toLowerCase()} worth right now?`,
+        answer: `Your ${primary.oz.toFixed(2)} oz of ${primary.name.toLowerCase()} is currently worth`,
+        value: primary.val,
+        spotLabel: `at today's spot price of $${fmt(livePrices[primary.metal] || 0)}/oz.`,
+      };
+    }
+    const goldVal = 12.4 * (livePrices[MetalType.GOLD] || 0);
+    return {
+      question: 'What is my gold worth right now?',
+      answer: 'Your 12.4 oz of gold is currently worth',
+      value: goldVal,
+      spotLabel: `at today's spot price of $${fmt(livePrices[MetalType.GOLD] || 0)}/oz.`,
+    };
+  }, [user, portfolioData, livePrices]);
+
+  // Media type badge colors
+  const mediaTypeStyle = (type: string) => {
+    switch (type) {
+      case 'blog': return { bg: 'rgba(189,154,95,0.15)', color: '#BD9A5F', label: 'Blog' };
+      case 'podcast': return { bg: 'rgba(76,175,80,0.15)', color: '#4CAF50', label: 'Podcast' };
+      case 'youtube': return { bg: 'rgba(255,0,0,0.12)', color: '#FF4444', label: 'YouTube' };
+      default: return { bg: 'rgba(189,154,95,0.15)', color: '#BD9A5F', label: 'Article' };
+    }
+  };
+
+  // Time-ago formatter
+  const timeAgo = (dateStr: string) => {
+    const now = new Date();
+    const d = new Date(dateStr);
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return `${Math.floor(diffDays / 30)} months ago`;
+  };
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white font-sans overflow-x-hidden selection:bg-gold-500 selection:text-navy-900">
-      
-      {/* Navigation - Glassmorphic */}
-      <nav className={`fixed w-full z-50 transition-all duration-300 ${scrollY > 50 ? 'bg-navy-900/80 backdrop-blur-md border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3 group cursor-pointer">
-            <div className="w-10 h-10 bg-gradient-to-br from-gold-400 to-gold-600 transform rotate-45 flex items-center justify-center shadow-lg shadow-gold-500/20 group-hover:rotate-0 transition-transform duration-500">
-              <span className="font-serif font-bold text-navy-900 text-xl transform -rotate-45 group-hover:rotate-0 transition-transform duration-500">M</span>
-            </div>
-            <div>
-              <span className="block font-serif font-bold text-xl tracking-widest leading-none text-white">MAROON</span>
-              <span className="block text-[9px] text-gold-500 tracking-[0.3em] leading-none mt-1 opacity-80">BY ALEX LEXINGTON</span>
-            </div>
-          </div>
-          <button 
-            onClick={onEnterApp}
-            className="hidden md:block bg-transparent hover:bg-gold-500/10 text-gold-500 border border-gold-500/50 text-xs font-bold py-3 px-8 rounded-sm tracking-[0.2em] transition-all uppercase hover:border-gold-500 hover:text-white"
+    <div
+      className="min-h-screen text-white overflow-x-hidden selection:text-navy-900"
+      style={{
+        fontFamily: "'DM Sans', sans-serif",
+        background: '#0A2240',
+        color: '#FFFFFF',
+        WebkitFontSmoothing: 'antialiased',
+      }}
+    >
+      {/* ═══ LIVE TICKER ═══ */}
+      <div
+        className="sticky top-0 z-[100] border-b"
+        style={{ background: '#0D2A4D', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        <LiveTicker prices={livePrices} />
+      </div>
+
+      {/* ═══ NAVIGATION ═══ */}
+      <nav
+        className="flex justify-between items-center relative z-10"
+        style={{ padding: '20px clamp(24px, 4vw, 48px)' }}
+      >
+        <div className="flex items-center gap-3.5 cursor-pointer" onClick={onEnterApp}>
+          <div
+            className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, #BD9A5F, #5D452B)',
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: '22px',
+              fontWeight: 300,
+              color: 'white',
+            }}
           >
-            {user ? 'Enter Dashboard' : 'Sign In'}
+            AL
+          </div>
+          <div>
+            <span
+              className="block text-white"
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: '20px',
+                fontWeight: 400,
+                letterSpacing: '0.04em',
+              }}
+            >
+              Alex Lexington <span style={{ color: '#BD9A5F', fontWeight: 300 }}>| Maroon</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-3 items-center">
+          <button
+            onClick={onEnterApp}
+            className="hidden sm:block transition-all duration-300"
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(189,154,95,0.25)',
+              color: '#D4B77A',
+              padding: '10px 24px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+              cursor: 'pointer',
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={onEnterApp}
+            className="transition-all duration-300 hover:-translate-y-px"
+            style={{
+              background: 'linear-gradient(135deg, #BD9A5F, #A8864E)',
+              border: 'none',
+              color: '#0A2240',
+              padding: '10px 28px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              cursor: 'pointer',
+            }}
+          >
+            {user ? 'Enter Dashboard' : 'Get Started'}
           </button>
         </div>
       </nav>
 
-      {/* 1. Cinematic Hero Section */}
-      <section className="relative min-h-screen flex flex-col justify-center pt-24 lg:pt-20 overflow-hidden pb-16">
-        {/* Background Atmosphere */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-full bg-navy-900" />
-            
-            {/* Animated Blobs */}
-            <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-gold-500/10 rounded-full blur-[100px] animate-blob mix-blend-screen pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-500/10 rounded-full blur-[120px] animate-blob animation-delay-2000 mix-blend-screen pointer-events-none" />
-            <div className="absolute top-[40%] left-[40%] w-[40vw] h-[40vw] bg-purple-500/5 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-screen pointer-events-none" />
-
-            {/* Mouse Spotlight */}
-            <div 
-              className="absolute inset-0 z-10 pointer-events-none transition-opacity duration-500"
-              style={{ 
-                background: `radial-gradient(800px circle at ${mousePos.x}px ${mousePos.y}px, rgba(212, 175, 55, 0.08), transparent 40%)` 
+      {/* ═══ HERO ═══ */}
+      <section className="relative overflow-hidden text-center" style={{ padding: '80px clamp(24px, 4vw, 48px) 60px' }}>
+        {/* Radial glow */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: '-40%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '800px',
+            height: '800px',
+            background: 'radial-gradient(ellipse at center, rgba(189,154,95,0.06) 0%, transparent 60%)',
+          }}
+        />
+        <div className="relative z-[1] max-w-[720px] mx-auto">
+          <div
+            className="mb-6"
+            style={{
+              fontSize: '12px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: '#BD9A5F',
+              fontWeight: 500,
+            }}
+          >
+            Precious Metals Portfolio Management
+          </div>
+          <h1
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 'clamp(42px, 5.5vw, 64px)',
+              fontWeight: 300,
+              lineHeight: 1.1,
+              marginBottom: '24px',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Your Wealth,<br />
+            <em style={{ fontStyle: 'italic', color: '#D4B77A' }}>Refined.</em>
+          </h1>
+          <p
+            className="mx-auto"
+            style={{
+              fontSize: '17px',
+              lineHeight: 1.7,
+              color: '#D9D8D6',
+              maxWidth: '540px',
+              marginBottom: '40px',
+              fontWeight: 400,
+            }}
+          >
+            Track your precious metals portfolio in real time, store securely in our vault,
+            and build wealth automatically — all from one place. Powered by four generations of trust.
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <button
+              onClick={onEnterApp}
+              className="transition-all duration-300 hover:-translate-y-0.5"
+              style={{
+                background: 'linear-gradient(135deg, #BD9A5F, #A8864E)',
+                border: 'none',
+                color: '#0A2240',
+                padding: '14px 40px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
+                cursor: 'pointer',
               }}
-            />
+            >
+              Open Your Account
+            </button>
+            <a
+              href="#features"
+              className="transition-all duration-300"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(189,154,95,0.25)',
+                color: '#D4B77A',
+                padding: '14px 40px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 500,
+                letterSpacing: '0.03em',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                display: 'inline-block',
+              }}
+            >
+              Explore Features
+            </a>
+          </div>
+        </div>
+      </section>
 
-            {/* Drifting Gold Dust Particles */}
-            <div className="absolute inset-0 z-10 pointer-events-none">
-              {particles.map((p) => (
-                <div 
-                  key={p.id}
-                  className="absolute rounded-full bg-gold-400"
-                  style={{
-                    left: p.left,
-                    top: '100%',
-                    width: p.width,
-                    height: p.height,
-                    opacity: p.opacity,
-                    animation: `drift-up ${p.duration} linear infinite`,
-                    animationDelay: p.delay
-                  }}
-                />
+      {/* ═══ TRUST BAR ═══ */}
+      <div className="flex justify-center flex-wrap" style={{ gap: '48px', padding: '40px clamp(24px, 4vw, 48px)' }}>
+        {[
+          { value: '1976', label: 'Established' },
+          { value: '4th Gen', label: 'Family Owned' },
+          { value: 'Atlanta', label: 'Headquartered' },
+          { value: 'Insured', label: 'Vault Storage' },
+        ].map((item, i, arr) => (
+          <React.Fragment key={i}>
+            <div className="text-center">
+              <div
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: '28px',
+                  fontWeight: 400,
+                  color: '#BD9A5F',
+                  marginBottom: '4px',
+                }}
+              >
+                {item.value}
+              </div>
+              <div
+                style={{
+                  fontSize: '12px',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: '#A9A89F',
+                }}
+              >
+                {item.label}
+              </div>
+            </div>
+            {i < arr.length - 1 && (
+              <div
+                className="self-center hidden sm:block"
+                style={{
+                  width: '1px',
+                  height: '48px',
+                  background: 'rgba(255,255,255,0.08)',
+                }}
+              />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Section Divider */}
+      <div
+        className="mx-auto"
+        style={{
+          width: '60px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, #BD9A5F, transparent)',
+        }}
+      />
+
+      {/* ═══ FEATURES ═══ */}
+      <section
+        id="features"
+        className="mx-auto"
+        style={{ padding: '80px clamp(24px, 4vw, 48px)', maxWidth: '1200px' }}
+      >
+        <div className="text-center" style={{ marginBottom: '64px' }}>
+          <h2
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 'clamp(32px, 4vw, 44px)',
+              fontWeight: 300,
+              marginBottom: '16px',
+            }}
+          >
+            Everything You Need to<br />Invest in Precious Metals
+          </h2>
+          <p className="mx-auto" style={{ color: '#A9A89F', fontSize: '16px', maxWidth: '480px', lineHeight: 1.6 }}>
+            A complete platform purpose-built for the modern metals investor.
+          </p>
+        </div>
+
+        <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+          {[
+            {
+              icon: '📊',
+              title: 'Live Portfolio Tracking',
+              desc: 'See your gold, silver, platinum, and palladium holdings valued in real time against live spot prices. Track performance, allocation, and total value at a glance.',
+              tag: 'Available Now',
+              tagStyle: 'live',
+            },
+            {
+              icon: '🏦',
+              title: 'Secure Vault Storage',
+              desc: 'Store your metals in our insured, audited vault facility. Tiered pricing based on holdings value. No more worrying about home security — we handle it.',
+              tag: 'Spring 2026',
+              tagStyle: 'coming',
+            },
+            {
+              icon: '🔄',
+              title: 'Auto-Invest (DCA)',
+              desc: "Set it and forget it. Automatically purchase gold or silver on a schedule — weekly, bi-weekly, or monthly. Build your position consistently with dollar-cost averaging.",
+              tag: 'Coming Soon',
+              tagStyle: 'coming',
+            },
+            {
+              icon: '🔔',
+              title: 'Price Alerts',
+              desc: 'Set custom alerts for any metal at any price point. Get notified instantly when the market hits your target — so you never miss an opportunity to buy or sell.',
+              tag: 'Coming Soon',
+              tagStyle: 'coming',
+            },
+          ].map((feature, i) => (
+            <div
+              key={i}
+              className="relative overflow-hidden transition-all duration-400 group"
+              style={{
+                background: 'rgba(13,42,77,0.6)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '16px',
+                padding: 'clamp(28px, 3vw, 40px) clamp(24px, 2.5vw, 36px)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <div
+                className="mb-6 flex items-center justify-center"
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '12px',
+                  fontSize: '24px',
+                  background: 'rgba(189,154,95,0.15)',
+                  border: '1px solid rgba(189,154,95,0.12)',
+                }}
+              >
+                {feature.icon}
+              </div>
+              <h3
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: '24px',
+                  fontWeight: 400,
+                  marginBottom: '12px',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                {feature.title}
+              </h3>
+              <p style={{ color: '#A9A89F', fontSize: '14.5px', lineHeight: 1.7, marginBottom: '20px' }}>
+                {feature.desc}
+              </p>
+              <span
+                className="inline-block"
+                style={{
+                  fontSize: '11px',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  padding: '5px 14px',
+                  borderRadius: '100px',
+                  fontWeight: 600,
+                  ...(feature.tagStyle === 'live'
+                    ? { background: 'rgba(76,175,80,0.15)', color: '#4CAF50' }
+                    : { background: 'rgba(189,154,95,0.15)', color: '#BD9A5F' }),
+                }}
+              >
+                {feature.tag}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Section Divider */}
+      <div
+        className="mx-auto"
+        style={{ width: '60px', height: '1px', background: 'linear-gradient(90deg, transparent, #BD9A5F, transparent)' }}
+      />
+
+      {/* ═══ SPOTLIGHT — Portfolio Preview ═══ */}
+      <section className="mx-auto" style={{ padding: '80px clamp(24px, 4vw, 48px)', maxWidth: '1200px' }}>
+        <div className="grid items-center" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '64px' }}>
+          {/* Text Side */}
+          <div>
+            <h2
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 'clamp(32px, 4vw, 42px)',
+                fontWeight: 300,
+                marginBottom: '20px',
+                lineHeight: 1.15,
+              }}
+            >
+              Your Metals.<br />
+              <em style={{ fontStyle: 'italic', color: '#D4B77A' }}>One Dashboard.</em>
+            </h2>
+            <p style={{ color: '#D9D8D6', fontSize: '16px', lineHeight: 1.7, marginBottom: '32px' }}>
+              Whether you hold one ounce of gold or a diversified metals portfolio,
+              Maroon gives you instant clarity on what you own, what it's worth,
+              and how it's performing.
+            </p>
+            <div className="flex flex-col" style={{ gap: '16px', marginBottom: '36px' }}>
+              {[
+                'Real-time valuation against live spot prices',
+                'Complete order history and transaction records',
+                'Vault vs. home storage breakdown',
+                'Performance tracking with gain/loss over time',
+              ].map((feat, i) => (
+                <div key={i} className="flex items-start" style={{ gap: '14px' }}>
+                  <div
+                    className="flex-shrink-0"
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#BD9A5F',
+                      marginTop: '7px',
+                    }}
+                  />
+                  <span style={{ color: '#D9D8D6', fontSize: '15px', lineHeight: 1.5 }}>{feat}</span>
+                </div>
               ))}
             </div>
-
-            {/* Grid Overlay with Scroll Parallax */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
-                style={{ 
-                    backgroundImage: 'linear-gradient(rgba(212,175,55,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.3) 1px, transparent 1px)', 
-                    backgroundSize: '80px 80px',
-                    transform: `translateY(${scrollY * 0.2}px)`
-                }}>
-            </div>
-        </div>
-
-        <div className="relative z-10 max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-12 gap-12 items-center">
-            {/* Text Content */}
-            <div className="lg:col-span-7 text-left order-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-500/10 border border-gold-500/20 mb-6 animate-fade-in-up backdrop-blur-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span>
-                    <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-gold-500">Private Beta</span>
-                </div>
-
-                <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-medium leading-[0.9] mb-6 text-white animate-fade-in-up delay-100 drop-shadow-2xl">
-                    Wealth, <br/>
-                    <span className="text-gradient-gold italic">Refined.</span>
-                </h1>
-                
-                <p className="text-base md:text-lg text-gray-400 font-light max-w-xl leading-relaxed mb-10 animate-fade-in-up delay-200 border-l border-gold-500/30 pl-6 backdrop-blur-sm bg-navy-900/10">
-                    The security of physical allocation. The liquidity of digital assets. 
-                    Maroon is the definitive bridge between your legacy and the future of finance.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up delay-300">
-                    <button 
-                        onClick={onEnterApp}
-                        className="group relative px-8 py-4 bg-gold-500 text-navy-900 font-bold tracking-widest uppercase text-xs md:text-sm overflow-hidden shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] transition-all duration-300"
-                    >
-                        <span className="relative z-10 group-hover:text-white transition-colors duration-300">{user ? 'Open Dashboard' : 'Sign In'}</span>
-                        <div className="absolute inset-0 bg-navy-800 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0"></div>
-                    </button>
-                    
-                    <button 
-                        onClick={() => setShowMarketPreview(true)}
-                        className="px-8 py-4 border border-white/10 text-white font-bold tracking-widest uppercase text-xs md:text-sm hover:bg-white/5 transition-colors backdrop-blur-sm"
-                    >
-                        View Markets
-                    </button>
-                </div>
-            </div>
-
-            {/* Hero Visual - Holographic Card */}
-            {/* Visible on all screens, stacked below text on mobile */}
-            <div className="lg:col-span-5 relative animate-float delay-500 order-2 mt-8 lg:mt-0 flex justify-center lg:block">
-                <div className="holo-card rounded-2xl p-6 md:p-8 transform rotate-0 lg:rotate-[-5deg] lg:hover:rotate-0 transition-all duration-700 ease-out backdrop-blur-xl w-full max-w-[320px] md:max-w-md lg:max-w-full scale-95 md:scale-100">
-                    <div className="flex justify-between items-start mb-8 md:mb-12">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-gold-500/30 flex items-center justify-center">
-                            <span className="font-serif font-bold text-gold-500 text-lg md:text-xl">M</span>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-[10px] uppercase tracking-widest text-gold-500 mb-1">Total Balance</div>
-                            <div className="text-2xl md:text-3xl font-mono font-bold text-white">$124,592.40</div>
-                        </div>
-                    </div>
-                    
-                    <div className="space-y-3 md:space-y-4 mb-8 md:mb-12">
-                         <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-8 bg-gold-500 rounded-sm"></div>
-                                <div>
-                                    <div className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider">Gold Allocation</div>
-                                    <div className="text-xs md:text-sm font-bold text-white">32.50 oz</div>
-                                </div>
-                            </div>
-                            <div className="text-green-400 text-xs font-mono">+2.4%</div>
-                         </div>
-                         <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-8 bg-gray-400 rounded-sm"></div>
-                                <div>
-                                    <div className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider">Silver Allocation</div>
-                                    <div className="text-xs md:text-sm font-bold text-white">450.00 oz</div>
-                                </div>
-                            </div>
-                            <div className="text-green-400 text-xs font-mono">+1.8%</div>
-                         </div>
-                    </div>
-
-                    <div className="flex justify-between items-end border-t border-white/10 pt-6">
-                        <div className="text-[10px] text-gray-500 font-mono">
-                            VAULT ID: 8829-X <br/>
-                            LOCATION: NEW YORK
-                        </div>
-                        <div className="w-16 h-8 bg-gold-500/20 rounded blur-xl absolute bottom-6 right-6"></div>
-                        <div className="text-gold-500 text-[10px] font-bold tracking-widest uppercase">Verified</div>
-                    </div>
-                </div>
-                
-                {/* Decorative Elements around card */}
-                <div className="absolute -top-6 -right-6 lg:-top-10 lg:-right-10 w-20 h-20 md:w-24 md:h-24 border-t border-r border-gold-500/20 rounded-tr-3xl animate-pulse-slow"></div>
-                <div className="absolute -bottom-6 -left-6 lg:-bottom-10 lg:-left-10 w-20 h-20 md:w-24 md:h-24 border-b border-l border-gold-500/20 rounded-bl-3xl animate-pulse-slow delay-700"></div>
-            </div>
-        </div>
-
-        {/* Live Ticker Anchored Bottom */}
-        <div className="absolute bottom-0 w-full z-20 border-t border-white/10 bg-navy-900/50 backdrop-blur-md">
-            <LiveTicker prices={prices || MOCK_SPOT_PRICES} />
-        </div>
-      </section>
-
-      {/* --- MARKET PREVIEW MODAL --- */}
-      {showMarketPreview && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-navy-900/95 backdrop-blur-xl animate-fade-in p-4">
-              <div className="w-full max-w-5xl bg-navy-900 border border-gold-500/20 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row h-[80vh] max-h-[600px]">
-                  
-                  {/* Close Button */}
-                  <button 
-                      onClick={() => setShowMarketPreview(false)}
-                      className="absolute top-6 right-6 z-20 text-gray-400 hover:text-white p-2 bg-black/20 rounded-full backdrop-blur-sm"
-                  >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-
-                  {/* Left: Chart Visualization */}
-                  <div className="flex-1 p-8 bg-gradient-to-b from-navy-800 to-navy-900 relative flex flex-col">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold-500 via-transparent to-gold-500 opacity-50"></div>
-                      
-                      <div className="flex justify-between items-end mb-8 relative z-10">
-                          <div>
-                              <div className="flex gap-2 mb-4">
-                                <button 
-                                    onClick={() => setPreviewMetal('gold')}
-                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${previewMetal === 'gold' ? 'bg-gold-500 text-navy-900' : 'bg-white/5 text-gray-400 hover:text-white'}`}
-                                >
-                                    Gold
-                                </button>
-                                <button 
-                                    onClick={() => setPreviewMetal('silver')}
-                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${previewMetal === 'silver' ? 'bg-gray-300 text-navy-900' : 'bg-white/5 text-gray-400 hover:text-white'}`}
-                                >
-                                    Silver
-                                </button>
-                              </div>
-                              <div className="text-3xl font-serif text-white capitalize">{previewMetal} / USD</div>
-                          </div>
-                          <div className="text-right">
-                              <div className="text-2xl font-mono text-white font-bold">
-                                  ${(prices?.[previewMetal] || (previewMetal === 'gold' ? 4617 : 88)).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                              </div>
-                              <div className="text-green-500 text-xs font-bold">+1.24%</div>
-                          </div>
-                      </div>
-
-                      <div className="flex-1 w-full relative min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={previewChartData}>
-                                  <defs>
-                                      <linearGradient id="previewGrad" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor={previewMetal === 'gold' ? '#D4AF37' : '#C0C0C0'} stopOpacity={0.3}/>
-                                          <stop offset="95%" stopColor={previewMetal === 'gold' ? '#D4AF37' : '#C0C0C0'} stopOpacity={0}/>
-                                      </linearGradient>
-                                  </defs>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" strokeOpacity={0.3} />
-                                  <XAxis dataKey="name" hide />
-                                  <YAxis domain={['auto', 'auto']} hide />
-                                  <Tooltip 
-                                      contentStyle={{ backgroundColor: '#0A2240', borderColor: '#153b63', color: '#fff', fontSize: '12px' }}
-                                      itemStyle={{ color: previewMetal === 'gold' ? '#D4AF37' : '#C0C0C0' }}
-                                      formatter={(val: number) => [`$${val.toFixed(2)}`, 'Price']}
-                                  />
-                                  <Area 
-                                      type="monotone" 
-                                      dataKey="value" 
-                                      stroke={previewMetal === 'gold' ? '#D4AF37' : '#C0C0C0'} 
-                                      strokeWidth={2}
-                                      fill="url(#previewGrad)"
-                                  />
-                              </AreaChart>
-                          </ResponsiveContainer>
-                      </div>
-
-                      <div className="mt-6 flex justify-between text-[10px] text-gray-500 font-mono border-t border-white/5 pt-4">
-                          <span>30 DAY PERFORMANCE VIEW</span>
-                          <span>UPDATED: LIVE</span>
-                      </div>
-                  </div>
-
-                  {/* Right: Trade Action Sidebar */}
-                  <div className="w-full md:w-80 p-8 bg-navy-950 flex flex-col border-l border-white/5 relative">
-                      <div className="mb-auto">
-                          <h3 className="text-lg font-bold text-white mb-2">Trade {previewMetal.charAt(0).toUpperCase() + previewMetal.slice(1)}</h3>
-                          <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-                              Execute trades instantly with allocated storage or request physical delivery.
-                          </p>
-                          
-                          <div className="space-y-3">
-                              <button 
-                                  onClick={onEnterApp}
-                                  className="w-full py-4 bg-green-500 hover:bg-green-400 text-navy-900 font-bold rounded-xl transition-all shadow-lg flex items-center justify-between px-6 group"
-                              >
-                                  <span>Buy</span>
-                                  <span className="text-xs font-mono bg-navy-900/10 px-2 py-1 rounded group-hover:bg-navy-900/20">
-                                      ${(prices?.[previewMetal] || (previewMetal === 'gold' ? 4617 : 88)).toLocaleString()}
-                                  </span>
-                              </button>
-                              <button 
-                                  onClick={onEnterApp}
-                                  className="w-full py-4 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-between px-6 group"
-                              >
-                                  <span>Sell</span>
-                                  <span className="text-xs font-mono bg-black/10 px-2 py-1 rounded group-hover:bg-black/20">
-                                      ${((prices?.[previewMetal] || (previewMetal === 'gold' ? 4617 : 88)) * 0.98).toLocaleString()}
-                                  </span>
-                              </button>
-                          </div>
-                      </div>
-
-                      <div className="mt-8 pt-8 border-t border-white/10 text-center">
-                          <p className="text-xs text-gray-500 mb-4">
-                              Real-time trading requires a verified account.
-                          </p>
-                          <button 
-                              onClick={onEnterApp}
-                              className="text-gold-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                          >
-                              Create Profile
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                          </button>
-                      </div>
-                  </div>
-              </div>
+            <button
+              onClick={onEnterApp}
+              className="transition-all duration-300 hover:-translate-y-0.5"
+              style={{
+                background: 'linear-gradient(135deg, #BD9A5F, #A8864E)',
+                border: 'none',
+                color: '#0A2240',
+                padding: '14px 40px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
+                cursor: 'pointer',
+              }}
+            >
+              {user ? 'View Your Portfolio' : 'Sign In to Your Portfolio'}
+            </button>
           </div>
-      )}
 
-      {/* 1.5 App Preview Section */}
-      <section className="relative z-20 py-16 md:py-24 px-4 bg-navy-950/50">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-10 md:mb-12">
-              <span className="text-gold-500 text-[10px] font-bold tracking-[0.3em] uppercase block mb-3">Interface</span>
-              <h3 className="text-2xl md:text-3xl font-serif text-white">Command Center</h3>
-          </div>
-          <div className="relative rounded-2xl bg-navy-900 border border-gold-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden transform hover:scale-[1.01] transition-transform duration-700">
-             {/* Window Controls */}
-             <div className="bg-navy-950 px-4 py-3 flex items-center gap-2 border-b border-white/5">
-                <div className="w-3 h-3 rounded-full bg-red-500/20"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-500/20"></div>
-                <div className="w-3 h-3 rounded-full bg-green-500/20"></div>
-                <div className="ml-4 bg-navy-800 rounded px-3 py-1 text-[10px] text-gray-500 font-mono w-48 md:w-64 text-center border border-white/5 hidden sm:block">maroon.app/dashboard</div>
-             </div>
-             
-             {/* App Interface Mockup */}
-             <div className="p-4 md:p-8 bg-navy-900 grid lg:grid-cols-3 gap-8">
-                {/* Left Col: Stats & Chart */}
-                <div className="lg:col-span-2 space-y-6">
-                   <div className="flex justify-between items-end">
-                      <div>
-                         <div className="text-gray-400 text-[10px] md:text-xs uppercase tracking-widest mb-1">Total Portfolio Value</div>
-                         <div className="text-2xl md:text-5xl font-serif text-white tracking-tight">$124,592.40</div>
-                      </div>
-                      <div className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] md:text-xs font-bold border border-green-500/20">+2.4% Today</div>
-                   </div>
-                   
-                   {/* Mock Chart Area */}
-                   <div className="h-32 md:h-48 bg-navy-800 rounded-xl border border-white/5 relative overflow-hidden group shadow-inner">
-                      <div className="absolute inset-0 bg-gradient-to-t from-gold-500/5 to-transparent opacity-50"></div>
-                      <svg className="w-full h-full text-gold-500" preserveAspectRatio="none" viewBox="0 0 100 100">
-                         <path d="M0 80 Q 20 70, 40 40 T 100 20 V 100 H 0 Z" fill="url(#grad)" opacity="0.2" />
-                         <path d="M0 80 Q 20 70, 40 40 T 100 20" fill="none" stroke="currentColor" strokeWidth="1" />
-                         <defs>
-                            <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
-                               <stop offset="0%" stopColor="currentColor" />
-                               <stop offset="100%" stopColor="transparent" />
-                            </linearGradient>
-                         </defs>
-                      </svg>
-                   </div>
+          {/* Portfolio Preview Card — LIVE DATA */}
+          <div
+            className="relative overflow-hidden"
+            style={{
+              background: '#0D2A4D',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '20px',
+              padding: '32px',
+            }}
+          >
+            {/* Radial glow */}
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                top: '-100px',
+                right: '-100px',
+                width: '250px',
+                height: '250px',
+                background: 'radial-gradient(circle, rgba(189,154,95,0.06), transparent 70%)',
+              }}
+            />
+            <div className="flex justify-between items-start relative" style={{ marginBottom: '28px' }}>
+              <div>
+                <div style={{ fontSize: '13px', color: '#A9A89F', marginBottom: '4px' }}>
+                  {portfolioData.isReal ? 'Your Portfolio Value' : 'Sample Portfolio Value'}
                 </div>
-
-                {/* Right Col: Asset List */}
-                <div className="space-y-4 hidden lg:block">
-                   <div className="text-sm font-bold text-white mb-2">Recent Assets</div>
-                   {[
-                      { name: 'American Gold Eagle', type: 'Gold', qty: '5x', val: '$12,450' },
-                      { name: 'PAMP Suisse Bar', type: 'Gold', qty: '1x', val: '$2,340' },
-                      { name: 'Silver Maple Leaf', type: 'Silver', qty: '100x', val: '$3,200' },
-                   ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-navy-800 border border-white/5 hover:border-gold-500/30 transition-colors">
-                         <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-navy-900 shadow-inner ${item.type === 'Gold' ? 'bg-gold-500' : item.type === 'Silver' ? 'bg-gray-300' : 'bg-gray-200'}`}>
-                               {item.type[0]}
-                            </div>
-                            <div>
-                               <div className="text-xs font-bold text-white">{item.name}</div>
-                               <div className="text-[10px] text-gray-400">{item.qty} • {item.type}</div>
-                            </div>
-                         </div>
-                         <div className="text-xs font-bold text-white font-mono">{item.val}</div>
-                      </div>
-                   ))}
-                </div>
-             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. Prestige Features Grid */}
-      <section className="py-20 md:py-32 bg-navy-900 relative z-10">
-        <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16 md:mb-24">
-                <span className="text-gold-500 text-xs font-bold tracking-[0.3em] uppercase mb-4 block">The Platform</span>
-                <h2 className="text-3xl md:text-6xl font-serif text-white mb-8">Engineered for the<br/><span className="italic text-gray-500">Uncompromising.</span></h2>
-                <div className="w-px h-16 md:h-24 bg-gradient-to-b from-gold-500 to-transparent mx-auto"></div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-                {[
-                    {
-                        title: "100% Allocated",
-                        desc: "Direct title to specific bars and coins. Your assets are physically segregated, auditable, and yours alone.",
-                        icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    },
-                    {
-                        title: "Instant Liquidity",
-                        desc: "Liquidate your positions 24/7 at locked-in spot prices. Funds settle instantly to your balance.",
-                        icon: "M13 10V3L4 14h7v7l9-11h-7z"
-                    },
-                    {
-                        title: "Physical Redemption",
-                        desc: "Convert your digital portfolio into physical metal delivered securely to your door via armored transport.",
-                        icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                    }
-                ].map((feature, idx) => (
-                    <div key={idx} className="group p-8 md:p-10 border border-white/5 hover:border-gold-500/30 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 rounded-none relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-0.5 h-0 bg-gold-500 group-hover:h-full transition-all duration-700 ease-in-out"></div>
-                        <div className="w-12 h-12 mb-8 text-gold-500/80 group-hover:text-gold-500 transition-colors">
-                            <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d={feature.icon} /></svg>
-                        </div>
-                        <h3 className="text-2xl font-serif text-white mb-4">{feature.title}</h3>
-                        <p className="text-gray-400 font-light leading-relaxed">{feature.desc}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-      </section>
-
-      {/* 3. NEW: AI Concierge Section */}
-      <section className="py-20 md:py-32 bg-navy-950 relative border-t border-white/5 overflow-hidden">
-         {/* Background Effect */}
-         <div className="absolute top-0 right-0 w-[50vw] h-[50vw] bg-gold-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-         
-         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 md:gap-20 items-center relative z-10">
-            {/* Visual: Chat Interface */}
-            <div className="order-2 lg:order-1 relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-gold-500/20 to-transparent blur-3xl opacity-20 transform -rotate-12"></div>
-                
-                {/* Simulated Interface */}
-                <div className="bg-navy-900 border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-sm max-w-md mx-auto lg:mx-0">
-                    <div className="flex items-center gap-4 mb-8 border-b border-white/5 pb-4">
-                        <div className="w-10 h-10 rounded-full bg-gold-500 flex items-center justify-center shadow-lg shadow-gold-500/20">
-                           <span className="font-serif font-bold text-navy-900">M</span>
-                        </div>
-                        <div>
-                            <div className="text-sm font-bold text-white">Maroon AI</div>
-                            <div className="text-[10px] text-green-400 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                                ONLINE
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="space-y-6">
-                        {/* User Message */}
-                        <div className="flex justify-end">
-                            <div className="bg-navy-800 border border-white/5 rounded-2xl rounded-tr-sm px-5 py-3 text-sm text-gray-300 max-w-[85%]">
-                                How is my gold performing YTD compared to the S&P 500?
-                            </div>
-                        </div>
-                        
-                        {/* Maroon Response */}
-                        <div className="flex justify-start">
-                            <div className="bg-gradient-to-br from-gold-500/10 to-navy-800 border border-gold-500/20 rounded-2xl rounded-tl-sm px-5 py-4 text-sm text-white max-w-[90%] shadow-lg">
-                                <p className="mb-3 leading-relaxed">
-                                    Your gold holdings are up <span className="text-gold-500 font-bold">14.2% YTD</span>, outperforming the S&P 500 by 3.8%.
-                                </p>
-                                <div className="h-24 bg-navy-900/50 rounded-lg border border-white/5 p-3 mb-2 relative overflow-hidden">
-                                     {/* Fake Chart Line */}
-                                     <svg className="w-full h-full text-gold-500" viewBox="0 0 100 40" preserveAspectRatio="none">
-                                        <path d="M0 35 Q 20 30, 40 20 T 100 5" fill="none" stroke="currentColor" strokeWidth="2" />
-                                        <path d="M0 35 Q 20 30, 40 20 T 100 5 V 40 H 0 Z" fill="url(#gradient)" opacity="0.2" />
-                                        <defs>
-                                            <linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1">
-                                                <stop offset="0%" stopColor="currentColor" />
-                                                <stop offset="100%" stopColor="transparent" />
-                                            </linearGradient>
-                                        </defs>
-                                     </svg>
-                                </div>
-                                <p className="text-xs text-gray-400 italic">
-                                    Would you like to increase your allocation while spot price is favorable?
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Input Area */}
-                    <div className="mt-8 relative">
-                        <div className="h-12 bg-navy-950 rounded-full border border-white/10 flex items-center px-4 justify-between">
-                            <div className="w-24 h-2 bg-gray-700/50 rounded-full"></div>
-                            <div className="w-8 h-8 rounded-full bg-gold-500/20 flex items-center justify-center">
-                                <svg className="w-4 h-4 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Text Side */}
-            <div className="order-1 lg:order-2">
-                <span className="text-gold-500 text-xs font-bold tracking-[0.3em] uppercase mb-4 block">Maroon AI</span>
-                <h2 className="text-4xl md:text-5xl font-serif text-white mb-6 leading-tight">Your Private <br/>Bullion Concierge.</h2>
-                <div className="w-20 h-1 bg-gold-500 mb-8"></div>
-                <p className="text-base md:text-lg text-gray-400 font-light leading-relaxed mb-8">
-                    Maroon AI isn't just a chatbot. It is a sophisticated financial intelligence engine capable of auditing your vault, analyzing global market trends, and executing trades via natural language.
-                </p>
-                
-                <ul className="space-y-4 mb-10">
-                    {[
-                        "Instant Portfolio Audits",
-                        "Real-time Market Sentiment Analysis",
-                        "Voice-Activated Trading",
-                        "24/7 Wealth Intelligence"
-                    ].map((item, i) => (
-                        <li key={i} className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 bg-gold-500 rounded-full"></div>
-                            <span className="text-white font-medium tracking-wide">{item}</span>
-                        </li>
-                    ))}
-                </ul>
-
-                <button 
-                    onClick={onActivateAI || onEnterApp}
-                    className="group flex items-center gap-3 text-gold-500 font-bold uppercase tracking-widest text-sm hover:text-white transition-colors"
+                <div
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: '36px',
+                    fontWeight: 400,
+                  }}
                 >
-                    <span>{user ? 'Activate Concierge' : 'Login to Activate'}</span>
-                    <svg className="w-5 h-5 transform group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                </button>
+                  ${fmt(totalVal)}
+                </div>
+                <div
+                  className="inline-flex items-center"
+                  style={{
+                    gap: '4px',
+                    fontSize: '13px',
+                    color: '#4CAF50',
+                    background: 'rgba(76,175,80,0.15)',
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    marginTop: '8px',
+                  }}
+                >
+                  ▲ Live Spot
+                </div>
+              </div>
+              {!portfolioData.isReal && (
+                <div
+                  style={{
+                    fontSize: '10px',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: '#A9A89F',
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Demo
+                </div>
+              )}
             </div>
-         </div>
+
+            <div className="flex flex-col" style={{ gap: '12px' }}>
+              {portfolioData.holdings.map((h, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between transition-all duration-300"
+                  style={{
+                    padding: '14px 16px',
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: '12px' }}>
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        background: h.bgColor,
+                        color: h.color,
+                      }}
+                    >
+                      {h.sym}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{h.name}</div>
+                      <div style={{ fontSize: '12px', color: '#A9A89F' }}>{h.oz.toFixed(h.oz < 10 ? 2 : 1)} oz</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>${fmt(h.val)}</div>
+                    <div style={{ fontSize: '12px', color: '#4CAF50' }}>
+                      ${fmt(livePrices[h.metal] || 0)}/oz
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* 4. The Visual Vault */}
-      <section className="py-20 md:py-32 relative overflow-hidden">
-         <div className="absolute inset-0 bg-navy-800"></div>
-         <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-         
-         <div className="max-w-7xl mx-auto px-6 relative z-10 grid md:grid-cols-2 gap-12 md:gap-20 items-center">
-             <div>
-                 <h2 className="text-4xl md:text-5xl font-serif text-white mb-6">Physical ownership.<br/>Digital command.</h2>
-                 <p className="text-gray-400 text-lg font-light mb-8 leading-relaxed">
-                     Unlike ETFs, Maroon gives you direct ownership of specific serial-numbered bars. 
-                     View your vault audit in real-time.
-                 </p>
-                 
-                 <ul className="space-y-6">
-                     {[
-                         "Class 3 UL Rated Vault Storage",
-                         "Fully Insured by Lloyd's of London",
-                         "Quarterly Third-Party Audits"
-                     ].map((item, i) => (
-                         <li key={i} className="flex items-center gap-4 text-white">
-                             <div className="w-8 h-px bg-gold-500"></div>
-                             <span className="tracking-wide uppercase text-sm font-bold">{item}</span>
-                         </li>
-                     ))}
-                 </ul>
-             </div>
+      {/* Section Divider */}
+      <div
+        className="mx-auto"
+        style={{ width: '60px', height: '1px', background: 'linear-gradient(90deg, transparent, #BD9A5F, transparent)' }}
+      />
 
-             <div className="relative flex justify-center items-center">
-                 {/* Holographic Vault Visualization */}
-                 <div className="relative w-64 h-64 md:w-80 md:h-80">
-                     {/* Glow Background */}
-                     <div className="absolute inset-0 bg-gold-500/10 blur-[80px] rounded-full animate-pulse-slow"></div>
+      {/* ═══ ALEX LEXINGTON NETWORK — Real Media Feed ═══ */}
+      <section className="mx-auto" style={{ padding: '80px clamp(24px, 4vw, 48px)', maxWidth: '1200px' }}>
+        <div className="text-center" style={{ marginBottom: '48px' }}>
+          <div
+            className="mb-4"
+            style={{
+              color: '#BD9A5F',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Stay Connected
+          </div>
+          <h2
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 'clamp(32px, 4vw, 42px)',
+              fontWeight: 300,
+              marginBottom: '16px',
+            }}
+          >
+            Alex Lexington Network
+          </h2>
+          <p className="mx-auto" style={{ color: '#A9A89F', fontSize: '16px', maxWidth: '520px', lineHeight: 1.6 }}>
+            Market insights, precious metals education, and behind-the-scenes from our blog, podcast, and YouTube channel.
+          </p>
+        </div>
 
-                     {/* Outer Ring (Static/Slow) */}
-                     <div className="absolute inset-0 rounded-full border border-gold-500/10 border-dashed animate-spin-slow"></div>
-                     
-                     {/* Middle Rings (Counter Rotating) */}
-                     <div className="absolute inset-8 rounded-full border border-white/5 animate-reverse-spin"></div>
-                     <div className="absolute inset-8 rounded-full border-t border-b border-transparent border-l-gold-500/30 border-r-gold-500/30 animate-reverse-spin"></div>
-                     
-                     {/* Inner Ring (Fast) */}
-                     <div className="absolute inset-16 rounded-full border border-white/5 border-dashed animate-[spin_8s_linear_infinite]"></div>
+        {/* Media Grid */}
+        {mediaLoading ? (
+          <div className="flex justify-center items-center" style={{ height: '200px' }}>
+            <div className="animate-pulse flex flex-col items-center gap-3">
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(189,154,95,0.15)' }} />
+              <div style={{ fontSize: '14px', color: '#A9A89F' }}>Loading media feed...</div>
+            </div>
+          </div>
+        ) : mediaItems.length > 0 ? (
+          <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+            {mediaItems.slice(0, 6).map((item) => {
+              const badge = mediaTypeStyle(item.type);
+              return (
+                <a
+                  key={item.id}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden transition-all duration-300"
+                  style={{
+                    background: 'rgba(13,42,77,0.6)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '16px',
+                    padding: '0',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  {/* Thumbnail for YouTube */}
+                  {item.type === 'youtube' && item.videoId && (
+                    <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                      <img
+                        src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`}
+                        alt=""
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        style={{ display: 'block' }}
+                      />
+                      {/* Play overlay */}
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: 'rgba(0,0,0,0.3)' }}
+                      >
+                        <div
+                          className="flex items-center justify-center rounded-full"
+                          style={{
+                            width: '52px',
+                            height: '52px',
+                            background: 'rgba(255,0,0,0.9)',
+                          }}
+                        >
+                          <svg className="w-5 h-5 ml-1" fill="white" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                     {/* Core Hologram */}
-                     <div className="absolute inset-24 rounded-full bg-gradient-to-b from-white/5 to-transparent backdrop-blur-md border border-white/10 flex items-center justify-center overflow-hidden shadow-[0_0_30px_rgba(212,175,55,0.1)] group">
-                          {/* Scanning Laser */}
-                          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold-500/50 to-transparent animate-scan blur-[2px]"></div>
-                          
-                          <div className="text-center relative z-10">
-                              <div className="text-4xl md:text-5xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-b from-gold-200 to-gold-600 drop-shadow-sm">Au</div>
-                              <div className="text-[10px] text-gold-500 tracking-[0.3em] uppercase mt-2 font-mono">196.967</div>
-                              <div className="text-[8px] text-gray-500 tracking-widest mt-1">99.99% PURE</div>
-                          </div>
-                     </div>
-                     
-                     {/* Orbiting Particles */}
-                     <div className="absolute inset-0 animate-spin-slow">
-                         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1.5 w-3 h-3 bg-gold-500 rounded-full shadow-[0_0_15px_#D4AF37]"></div>
-                     </div>
-                 </div>
-             </div>
-         </div>
+                  {/* Blog thumbnail */}
+                  {item.type === 'blog' && item.imageUrl && (
+                    <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                      <img
+                        src={item.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        style={{ display: 'block' }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ padding: 'clamp(20px, 2vw, 28px)' }}>
+                    {/* Type badge + date */}
+                    <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                          padding: '3px 10px',
+                          borderRadius: '100px',
+                          fontWeight: 700,
+                          background: badge.bg,
+                          color: badge.color,
+                        }}
+                      >
+                        {badge.label}
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#A9A89F' }}>
+                        {timeAgo(item.publishedAt)}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3
+                      className="group-hover:text-[#D4B77A] transition-colors duration-300"
+                      style={{
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: '20px',
+                        fontWeight: 400,
+                        lineHeight: 1.3,
+                        marginBottom: item.summary ? '10px' : '0',
+                        color: '#FFFFFF',
+                      }}
+                    >
+                      {item.title}
+                    </h3>
+
+                    {/* Summary */}
+                    {item.summary && (
+                      <p
+                        style={{
+                          fontSize: '13.5px',
+                          color: '#A9A89F',
+                          lineHeight: 1.6,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {item.summary}
+                      </p>
+                    )}
+
+                    {/* Duration for podcasts */}
+                    {item.type === 'podcast' && item.duration && (
+                      <div className="flex items-center mt-3" style={{ gap: '6px', color: '#4CAF50', fontSize: '12px' }}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {item.duration}
+                      </div>
+                    )}
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {/* Social Links */}
+        <div className="flex justify-center flex-wrap mt-12" style={{ gap: '16px' }}>
+          {[
+            { label: 'Spotify', url: mediaLinks?.spotify || 'https://open.spotify.com/show/263hqyQ6uyijeNtrOgTmS7', icon: '🎙️' },
+            { label: 'YouTube', url: mediaLinks?.youtube || 'https://www.youtube.com/@alexlexingtonnetwork', icon: '📺' },
+            { label: 'Instagram', url: mediaLinks?.instagram || 'https://www.instagram.com/alex.lexington.precious.metals/', icon: '📸' },
+            { label: 'TikTok', url: mediaLinks?.tiktok || 'https://www.tiktok.com/@alex_lexington_network', icon: '🎵' },
+            { label: 'Blog', url: 'https://alexlexington.com/blogs/news', icon: '📝' },
+          ].map((social, i) => (
+            <a
+              key={i}
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 transition-all duration-300 hover:-translate-y-0.5"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(189,154,95,0.2)',
+                borderRadius: '10px',
+                padding: '10px 20px',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#D4B77A',
+                letterSpacing: '0.02em',
+              }}
+            >
+              <span>{social.icon}</span>
+              <span>{social.label}</span>
+            </a>
+          ))}
+        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-navy-950 py-20 border-t border-white/5 relative z-10">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-            <div className="w-12 h-12 bg-gold-500 mx-auto transform rotate-45 flex items-center justify-center mb-8 shadow-lg shadow-gold-500/20">
-                <span className="font-serif font-bold text-navy-900 text-xl transform -rotate-45">M</span>
+      {/* Section Divider */}
+      <div
+        className="mx-auto"
+        style={{ width: '60px', height: '1px', background: 'linear-gradient(90deg, transparent, #BD9A5F, transparent)' }}
+      />
+
+      {/* ═══ AI CONCIERGE SECTION ═══ */}
+      <section className="relative overflow-hidden border-t" style={{ padding: '80px clamp(24px, 4vw, 48px)', borderColor: 'rgba(255,255,255,0.05)', background: '#081C36' }}>
+        <div className="absolute top-0 right-0 pointer-events-none" style={{ width: '50vw', height: '50vw', background: 'rgba(189,154,95,0.05)', borderRadius: '50%', filter: 'blur(100px)' }} />
+
+        <div className="mx-auto grid items-center relative z-10" style={{ maxWidth: '1200px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '64px' }}>
+          {/* Simulated Chat Interface */}
+          <div className="relative mx-auto lg:mx-0" style={{ maxWidth: '400px', width: '100%' }}>
+            <div
+              className="overflow-hidden shadow-2xl relative"
+              style={{
+                background: '#0A2240',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '24px',
+                padding: '24px',
+              }}
+            >
+              {/* Chat Header */}
+              <div className="flex items-center border-b pb-4 mb-6" style={{ gap: '12px', borderColor: 'rgba(255,255,255,0.05)' }}>
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
+                  style={{ background: '#BD9A5F', boxShadow: '0 4px 15px rgba(189,154,95,0.2)' }}
+                >
+                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, color: '#0A2240' }}>M</span>
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white">Maverick AI</div>
+                  <div className="text-[10px] flex items-center" style={{ color: '#4CAF50', gap: '4px' }}>
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#4CAF50' }} />
+                    ONLINE
+                  </div>
+                </div>
+              </div>
+
+              {/* Messages — driven by real or demo data */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* User */}
+                <div className="flex justify-end">
+                  <div
+                    className="text-sm"
+                    style={{
+                      background: '#0D2A4D',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      borderRadius: '16px 4px 16px 16px',
+                      padding: '12px 16px',
+                      color: '#D9D8D6',
+                      maxWidth: '85%',
+                    }}
+                  >
+                    {maverickQuestion.question}
+                  </div>
+                </div>
+                {/* AI Response */}
+                <div className="flex justify-start">
+                  <div
+                    className="text-sm shadow-lg"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(189,154,95,0.1), #0D2A4D)',
+                      border: '1px solid rgba(189,154,95,0.2)',
+                      borderRadius: '4px 16px 16px 16px',
+                      padding: '14px 16px',
+                      color: '#FFFFFF',
+                      maxWidth: '90%',
+                    }}
+                  >
+                    <p className="mb-2 leading-relaxed">
+                      {maverickQuestion.answer}{' '}
+                      <span style={{ color: '#BD9A5F', fontWeight: 700 }}>${fmt(maverickQuestion.value)}</span>{' '}
+                      {maverickQuestion.spotLabel}
+                    </p>
+                    <p className="text-xs italic" style={{ color: '#A9A89F' }}>
+                      Would you like me to set a price alert or check your full portfolio?
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Input Area */}
+              <div className="mt-6 relative">
+                <div
+                  className="h-12 rounded-full flex items-center px-4 justify-between"
+                  style={{ background: '#081C36', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <div className="rounded-full" style={{ width: '96px', height: '8px', background: 'rgba(255,255,255,0.05)' }} />
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(189,154,95,0.2)' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="#BD9A5F" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="text-gray-500 text-sm mb-8 max-w-md mx-auto">
-                Precious metals involve risk and are not suitable for all investors. 
-                Maroon is a service by Alex Lexington.
+          </div>
+
+          {/* Text Side */}
+          <div>
+            <div
+              className="mb-4"
+              style={{
+                color: '#BD9A5F',
+                fontSize: '12px',
+                fontWeight: 700,
+                letterSpacing: '0.3em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Maverick AI
+            </div>
+            <h2
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 'clamp(32px, 4vw, 42px)',
+                fontWeight: 300,
+                marginBottom: '20px',
+                lineHeight: 1.15,
+              }}
+            >
+              Your Private<br />Bullion Concierge.
+            </h2>
+            <div style={{ width: '80px', height: '4px', background: '#BD9A5F', marginBottom: '32px', borderRadius: '2px' }} />
+            <p style={{ fontSize: '16px', color: '#A9A89F', lineHeight: 1.7, marginBottom: '32px' }}>
+              Maverick AI is a sophisticated financial intelligence engine capable of auditing your vault,
+              analyzing global market trends, and providing instant coin and bullion valuations — all through natural conversation.
             </p>
-            <div className="flex justify-center gap-8 text-xs font-bold text-gray-400 tracking-widest uppercase">
-                <a href="#" className="hover:text-gold-500 transition-colors">Privacy</a>
-                <a href="#" className="hover:text-gold-500 transition-colors">Terms</a>
-                <a href="#" className="hover:text-gold-500 transition-colors">Contact</a>
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '36px' }}>
+              {[
+                'Instant Portfolio Audits',
+                'Real-time Market Sentiment Analysis',
+                'Coin & Bullion Melt Value Calculator',
+                '24/7 Wealth Intelligence',
+              ].map((item, i) => (
+                <li key={i} className="flex items-center" style={{ gap: '12px' }}>
+                  <div className="flex-shrink-0" style={{ width: '6px', height: '6px', background: '#BD9A5F', borderRadius: '50%' }} />
+                  <span style={{ color: '#FFFFFF', fontWeight: 500, letterSpacing: '0.02em' }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={onActivateAI || onEnterApp}
+              className="flex items-center group transition-colors duration-300"
+              style={{
+                gap: '12px',
+                color: '#BD9A5F',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.15em',
+                fontSize: '13px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <span>{user ? 'Activate Concierge' : 'Login to Activate'}</span>
+              <svg className="w-5 h-5 transform group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Section Divider */}
+      <div className="mx-auto" style={{ width: '60px', height: '1px', background: 'linear-gradient(90deg, transparent, #BD9A5F, transparent)' }} />
+
+      {/* ═══ HOW IT WORKS ═══ */}
+      <section className="mx-auto text-center" style={{ padding: '80px clamp(24px, 4vw, 48px)', maxWidth: '900px' }}>
+        <h2
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 'clamp(32px, 4vw, 42px)',
+            fontWeight: 300,
+            marginBottom: '56px',
+          }}
+        >
+          Getting Started Is Simple
+        </h2>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '40px' }}>
+          {[
+            {
+              num: '01',
+              title: 'Create Your Account',
+              desc: "Set up your Maroon profile with Alex Lexington. We'll assign you a permanent account number for all future transactions.",
+            },
+            {
+              num: '02',
+              title: 'Buy or Transfer Metals',
+              desc: 'Purchase gold, silver, or platinum at competitive wholesale pricing — or transfer existing holdings into your portfolio.',
+            },
+            {
+              num: '03',
+              title: 'Track & Grow',
+              desc: 'Monitor your portfolio in real time, set up auto-invest, and store securely in our vault. Your wealth, your way.',
+            },
+          ].map((step, i) => (
+            <div key={i}>
+              <div
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: '48px',
+                  fontWeight: 300,
+                  color: 'rgba(189,154,95,0.3)',
+                  marginBottom: '16px',
+                  lineHeight: 1,
+                }}
+              >
+                {step.num}
+              </div>
+              <h3
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: '22px',
+                  fontWeight: 400,
+                  marginBottom: '10px',
+                }}
+              >
+                {step.title}
+              </h3>
+              <p style={{ fontSize: '14px', color: '#A9A89F', lineHeight: 1.6 }}>{step.desc}</p>
             </div>
-            <div className="mt-12 text-[10px] text-gray-600">
-                © {new Date().getFullYear()} ALEX LEXINGTON. ALL RIGHTS RESERVED.
-            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ FINAL CTA ═══ */}
+      <section className="text-center relative" style={{ padding: '100px clamp(24px, 4vw, 48px)' }}>
+        <div
+          className="absolute bottom-0 left-0 right-0 pointer-events-none"
+          style={{
+            height: '400px',
+            background: 'linear-gradient(180deg, transparent, rgba(13,42,77,0.5))',
+          }}
+        />
+        <div className="relative z-[1] mx-auto" style={{ maxWidth: '560px' }}>
+          <h2
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 'clamp(32px, 4vw, 44px)',
+              fontWeight: 300,
+              marginBottom: '16px',
+              lineHeight: 1.15,
+            }}
+          >
+            Ready to Take Control<br />of Your Portfolio?
+          </h2>
+          <p style={{ color: '#A9A89F', fontSize: '16px', lineHeight: 1.6, marginBottom: '36px' }}>
+            Join the families and individuals who trust Alex Lexington to
+            safeguard and grow their precious metals investments.
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <button
+              onClick={onEnterApp}
+              className="transition-all duration-300 hover:-translate-y-0.5"
+              style={{
+                background: 'linear-gradient(135deg, #BD9A5F, #A8864E)',
+                border: 'none',
+                color: '#0A2240',
+                padding: '14px 40px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
+                cursor: 'pointer',
+              }}
+            >
+              Open Your Account
+            </button>
+            <a
+              href="tel:+14044507876"
+              className="transition-all duration-300"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(189,154,95,0.25)',
+                color: '#D4B77A',
+                padding: '14px 40px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 500,
+                letterSpacing: '0.03em',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                display: 'inline-block',
+              }}
+            >
+              Call Us: (404) 450-7876
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ FOOTER ═══ */}
+      <footer
+        className="flex justify-between items-center flex-wrap"
+        style={{
+          padding: '40px clamp(24px, 4vw, 48px)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          gap: '16px',
+        }}
+      >
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '16px', color: '#A9A89F' }}>
+          <strong style={{ color: '#BD9A5F', fontWeight: 400 }}>Alex Lexington</strong> — Precious Metals & Fine Jewelry
+        </div>
+        <div className="flex" style={{ gap: '32px' }}>
+          {[
+            { label: 'Privacy', href: '#' },
+            { label: 'Terms', href: '#' },
+            { label: 'Contact', href: '#' },
+            { label: 'AlexLexington.com', href: 'https://alexlexington.com' },
+          ].map((link, i) => (
+            <a
+              key={i}
+              href={link.href}
+              target={link.href.startsWith('http') ? '_blank' : undefined}
+              rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+              className="transition-colors duration-300 hover:text-[#D4B77A]"
+              style={{
+                fontSize: '13px',
+                color: '#A9A89F',
+                textDecoration: 'none',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+        <div
+          style={{
+            fontSize: '12px',
+            color: '#A9A89F',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Est. 1976 &bull; Atlanta, Georgia
         </div>
       </footer>
     </div>
