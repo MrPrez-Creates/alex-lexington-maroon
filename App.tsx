@@ -489,41 +489,11 @@ export default function App() {
     }
   };
 
-  // KYC gate specifically for trade actions (doesn't navigate, just gates the modal)
-  const openTradeWithKYC = async (tradeAction: 'buy' | 'sell', tradeMetal: string) => {
-    // If already verified, proceed directly
-    if (apiCustomer?.kycStatus === 'VERIFIED') {
-      setTradeConfig({ action: tradeAction, metal: tradeMetal });
-      setShowTradeModal(true);
-      return;
-    }
-
-    // Store trade intent
+  // Open trade modal — always opens immediately so users can browse prices.
+  // KYC verification is checked at transaction submission time, not here.
+  const openTradeWithKYC = (tradeAction: 'buy' | 'sell', tradeMetal: string) => {
     setTradeConfig({ action: tradeAction, metal: tradeMetal });
-    setPendingTradeAction(true);
-    setPendingView(null);
-
-    // If no customer record yet, open trade modal directly (it will show pricing/browsing)
-    if (!customerId) {
-      setShowTradeModal(true);
-      return;
-    }
-
-    const prefillData = {
-      email: apiCustomer?.email || user?.email || undefined,
-      phone: apiCustomer?.phone || undefined,
-      first_name: apiCustomer?.name?.split(' ')[0] || undefined,
-      last_name: apiCustomer?.name?.split(' ').slice(1).join(' ') || undefined,
-    };
-
-    const result = await initiateKYC(prefillData);
-    if (result?.link_token) {
-      setKycLinkToken(result.link_token);
-      setShowKYCModal(true);
-    } else {
-      // Proceed anyway if KYC server is unreachable
-      setShowTradeModal(true);
-    }
+    setShowTradeModal(true);
   };
 
   // Handle KYC success — navigate to pending destination
