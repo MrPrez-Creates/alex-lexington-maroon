@@ -53,6 +53,7 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
   const [trends, setTrends] = useState<Record<string, { trend: 'up' | 'down', change: number }>>({});
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [isNewsLoading, setIsNewsLoading] = useState(true);
+  const [newsVisible, setNewsVisible] = useState(4);
 
   const commodities = [
     { id: MetalType.GOLD, name: 'Gold', symbol: 'AU' },
@@ -284,7 +285,7 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
 
   // --- LIST VIEW ---
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 space-y-6 animate-fade-in pb-24">
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 space-y-6 animate-fade-in pb-36">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-navy-900 dark:text-white mb-4">Live Markets</h1>
@@ -357,7 +358,8 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
             {isNewsLoading ? (
                 <div className="text-center py-8 text-gray-500 text-xs">Loading feed...</div>
             ) : (
-                newsItems.map((news) => {
+                <>
+                {newsItems.slice(0, newsVisible).map((news) => {
                     const typeBadge = news.type === 'podcast'
                         ? { label: 'Podcast', bg: 'bg-green-600', icon: '🎙️' }
                         : news.type === 'youtube'
@@ -417,7 +419,29 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
                             </div>
                         </a>
                     );
-                })
+                })}
+
+                {/* Show More / Show Less */}
+                {newsItems.length > 4 && (
+                    <div className="flex justify-center pt-2 pb-4">
+                        {newsVisible < newsItems.length ? (
+                            <button
+                                onClick={() => setNewsVisible(prev => Math.min(prev + 4, newsItems.length))}
+                                className="px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-navy-800 dark:bg-white/5 text-gold-500 border border-gold-500/20 hover:bg-gold-500/10 transition-all active:scale-95"
+                            >
+                                Show More ({newsItems.length - newsVisible} remaining)
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => setNewsVisible(4)}
+                                className="px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white transition-colors"
+                            >
+                                Show Less
+                            </button>
+                        )}
+                    </div>
+                )}
+                </>
             )}
         </div>
       </div>
