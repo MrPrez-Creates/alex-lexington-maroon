@@ -5,6 +5,7 @@ interface FundingWalletProps {
   customerId: number;
   onFundingComplete?: () => void;
   onNavigateToFundAccount?: () => void;
+  plaidAvailable?: boolean;
 }
 
 interface BankAccount {
@@ -44,6 +45,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
   customerId,
   onFundingComplete,
   onNavigateToFundAccount,
+  plaidAvailable = true,
 }) => {
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -237,7 +239,31 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
         )}
       </div>
 
+      {/* Plaid Unavailable Banner */}
+      {!plaidAvailable && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <p className="text-amber-400 text-sm font-medium mb-1">Bank connection temporarily unavailable</p>
+              <p className="text-gray-400 text-xs">Use wire transfer to fund your account while we restore bank connections.</p>
+              {onNavigateToFundAccount && (
+                <button
+                  onClick={onNavigateToFundAccount}
+                  className="mt-2 text-xs text-amber-500 font-bold hover:text-amber-400 underline"
+                >
+                  View Wire Transfer Instructions
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Linked Bank Accounts */}
+      {plaidAvailable && (
       <div className="bg-slate-800/50 rounded-2xl p-4 border border-white/10">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-sm font-medium text-gray-300">Linked Accounts</h4>
@@ -287,6 +313,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Recent Transactions */}
       {balance?.recent_transactions && balance.recent_transactions.length > 0 && (

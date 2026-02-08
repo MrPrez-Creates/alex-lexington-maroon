@@ -13,7 +13,9 @@ import {
   getClientVaultHoldings,
   VaultHolding as ApiVaultHolding,
   PhysicalVaultHolding,
-  requestWithdrawal
+  requestWithdrawal,
+  createTradeOrder,
+  checkPlaidHealth
 } from './services/apiClient';
 import { resolveCustomerId } from './services/apiService';
 import type { SharedCustomer } from './types';
@@ -60,6 +62,8 @@ import FundingWallet from './components/FundingWallet';
 import FundAccountScreen from './components/FundAccountScreen';
 import MaverickIntro, { useMaverickIntro } from './components/MaverickIntro';
 import BalanceCheckout, { CheckoutSuccess } from './components/BalanceCheckout';
+import KYCVerification from './components/KYCVerification';
+import { useKYCCheck } from './hooks/useKYCCheck';
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -141,6 +145,18 @@ export default function App() {
     transaction_id?: string;
     amount?: number;
   } | null>(null);
+
+  // KYC Gate State (Tier 2 access)
+  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [kycLinkToken, setKycLinkToken] = useState<string | null>(null);
+  const [pendingView, setPendingView] = useState<ViewState | null>(null);
+  const [pendingTradeAction, setPendingTradeAction] = useState(false);
+
+  // Plaid Health State
+  const [plaidAvailable, setPlaidAvailable] = useState<boolean>(true);
+
+  // KYC Hook
+  const { initiateKYC, kycStatus: kycHookStatus } = useKYCCheck(customerId ? parseInt(customerId) : null);
 
   // --- Helpers ---
 
@@ -225,6 +241,17 @@ export default function App() {
 
     return () => { cancelled = true; };
   }, [user]);
+
+  // 1c. Plaid health check — test connectivity after customer resolves
+  useEffect(() => {
+    if (!customerId) return;
+    checkPlaidHealth().then(available => {
+      setPlaidAvailable(available);
+      if (!available) {
+        console.warn('[Maroon] Plaid service unavailable — wire transfer fallback active');
+      }
+    });
+  }, [customerId]);
 
   // 2. Build user profile from API customer data (replaces Firebase subscription)
   useEffect(() => {
@@ -428,6 +455,100 @@ export default function App() {
       setLiveChatPrompt(undefined);
   };
 
+  // Navigate with KYC gate — checks if user is verified before allowing Tier 2 views
+  const navigateWithKYC = async (targetView: ViewState) => {
+    // If already verified, proceed directly
+    if (apiCustomer?.kycStatus === 'VERIFIED') {
+      setView(targetView);
+      return;
+    }
+
+    // Store where the user wants to go
+    setPendingView(targetView);
+    setPendingTradeAction(false);
+
+    // Try to initiate KYC session
+    if (!customerId) return;
+
+    const prefillData = {
+      email: apiCustomer?.email || user?.email || undefined,
+      phone: apiCustomer?.phone || undefined,
+      first_name: apiCustomer?.name?.split(' ')[0] || undefined,
+      last_name: apiCustomer?.name?.split(' ').slice(1).join(' ') || undefined,
+    };
+
+    const result = await initiateKYC(prefillData);
+    if (result?.link_token) {
+      setKycLinkToken(result.link_token);
+      setShowKYCModal(true);
+    } else {
+      // If KYC initiation fails, still allow navigation (server might not require it)
+      console.warn('[Maroon] KYC initiation returned no link token, proceeding anyway');
+      setView(targetView);
+    }
+  };
+
+  // KYC gate specifically for trade actions (doesn't navigate, just gates the modal)
+  const openTradeWithKYC = async (tradeAction: 'buy' | 'sell', tradeMetal: string) => {
+    // If already verified, proceed directly
+    if (apiCustomer?.kycStatus === 'VERIFIED') {
+      setTradeConfig({ action: tradeAction, metal: tradeMetal });
+      setShowTradeModal(true);
+      return;
+    }
+
+    // Store trade intent
+    setTradeConfig({ action: tradeAction, metal: tradeMetal });
+    setPendingTradeAction(true);
+    setPendingView(null);
+
+    if (!customerId) return;
+
+    const prefillData = {
+      email: apiCustomer?.email || user?.email || undefined,
+      phone: apiCustomer?.phone || undefined,
+      first_name: apiCustomer?.name?.split(' ')[0] || undefined,
+      last_name: apiCustomer?.name?.split(' ').slice(1).join(' ') || undefined,
+    };
+
+    const result = await initiateKYC(prefillData);
+    if (result?.link_token) {
+      setKycLinkToken(result.link_token);
+      setShowKYCModal(true);
+    } else {
+      // Proceed anyway if KYC server is unreachable
+      setShowTradeModal(true);
+    }
+  };
+
+  // Handle KYC success — navigate to pending destination
+  const handleKYCSuccess = () => {
+    setShowKYCModal(false);
+    setKycLinkToken(null);
+
+    // Update the local customer KYC status
+    if (apiCustomer) {
+      setApiCustomer({ ...apiCustomer, kycStatus: 'VERIFIED' });
+    }
+
+    if (pendingTradeAction) {
+      // User was trying to trade — open the trade modal
+      setShowTradeModal(true);
+      setPendingTradeAction(false);
+    } else if (pendingView) {
+      setView(pendingView);
+      setPendingView(null);
+    }
+  };
+
+  // Handle KYC exit/cancel
+  const handleKYCExit = () => {
+    setShowKYCModal(false);
+    setKycLinkToken(null);
+    setPendingView(null);
+    setPendingTradeAction(false);
+  };
+
   const handleTrade = async (
       action: 'buy' | 'sell', 
       metal: string, 
@@ -446,11 +567,28 @@ export default function App() {
       if (!userProfile || !user) return;
 
       try {
-          // Log the trade order — will be processed through the Command Center
-          // The FizTrade API endpoints exist but full checkout flow needs balance integration
+          // Submit trade order to Command Center API
+          const weightOz = units === 'usd' && price > 0 ? amount / price : amount;
+
+          const result = await createTradeOrder({
+              customer_id: customerId || user.id,
+              action,
+              metal,
+              amount_usd: amount,
+              weight_oz: weightOz,
+              price_per_oz: price,
+              fulfillment_type: fulfillmentType,
+              storage_type: storageType,
+              delivery_method: deliveryMethod,
+              payout_method: payoutMethod,
+              is_recurring: isRecurring,
+              frequency: frequency,
+              bulk_items: bulkItems,
+          });
+
           console.log(`[Trade Order] ${action.toUpperCase()} ${metal}`, {
-              amount, units, price, storageType, fulfillmentType, deliveryMethod,
-              isRecurring, frequency, bulkItems,
+              result: result.data,
+              amount, units, price,
               timestamp: new Date().toISOString(),
           });
           // Success confirmation is shown by the TradeModal's success step
@@ -478,8 +616,10 @@ export default function App() {
                   throw new Error('Withdrawal request failed');
               }
           } else {
-              // === DEPOSIT: Handled via Fund Account / Plaid ===
-              alert('To deposit funds, use the Fund Account option in your Wallet to initiate a wire transfer.');
+              // === DEPOSIT: Route to Wallet (Plaid ACH or Wire Transfer) ===
+              setShowTransferModal(false);
+              navigateWithKYC('wallet');
+              return; // Don't close modal again below
           }
 
           setShowTransferModal(false);
@@ -582,8 +722,9 @@ export default function App() {
                         setTransferType('deposit');
                         setShowTransferModal(true);
                     } else if (action === 'trade') {
-                        setTradeConfig({ action: 'buy', metal: MetalType.GOLD });
-                        setShowTradeModal(true);
+                        openTradeWithKYC('buy', MetalType.GOLD);
+                    } else if (action === 'deposit') {
+                        navigateWithKYC('wallet');
                     }
                 }}
              />
@@ -610,6 +751,7 @@ export default function App() {
                 customerId={customerId ? parseInt(customerId) : 0}
                 onFundingComplete={() => setView('dashboard')}
                 onNavigateToFundAccount={() => setView('fund-account')}
+                plaidAvailable={plaidAvailable}
              />
          )}
 
@@ -777,7 +919,7 @@ export default function App() {
               </div>
 
               <button
-                onClick={() => setView('wallet')}
+                onClick={() => navigateWithKYC('wallet')}
                 className={`flex flex-col items-center justify-center w-full h-full ${view === 'wallet' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
               >
                   <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
@@ -804,11 +946,10 @@ export default function App() {
                   
                   <div className="space-y-4">
                       {/* 1. Buy Gold & Silver (Primary) */}
-                      <button 
+                      <button
                          onClick={() => {
-                            setTradeConfig({ action: 'buy', metal: MetalType.GOLD });
-                            setShowTradeModal(true);
                             setShowActionSheet(false);
+                            openTradeWithKYC('buy', MetalType.GOLD);
                         }}
                         className="w-full p-4 rounded-2xl bg-gold-500 text-navy-900 flex items-center justify-between shadow-lg shadow-gold-500/20 active:scale-95 transition-transform"
                       >
@@ -824,9 +965,8 @@ export default function App() {
                       {/* 2. Sell Assets */}
                       <button
                          onClick={() => {
-                            setTradeConfig({ action: 'sell', metal: MetalType.GOLD });
-                            setShowTradeModal(true);
                             setShowActionSheet(false);
+                            openTradeWithKYC('sell', MetalType.GOLD);
                         }}
                         className="w-full p-4 rounded-2xl flex items-center justify-between hover:bg-gray-100 dark:hover:bg-navy-800 transition-colors group border border-transparent dark:hover:border-navy-700"
                       >
@@ -881,9 +1021,8 @@ export default function App() {
                       <div className="bg-navy-800 rounded-2xl overflow-hidden mt-4">
                           <button
                              onClick={() => {
-                                setTransferType('deposit');
-                                setShowTransferModal(true);
                                 setShowActionSheet(false);
+                                navigateWithKYC('wallet');
                             }}
                             className="w-full p-4 flex items-center justify-between hover:bg-navy-700 transition-colors group border-b border-navy-700"
                           >
@@ -928,8 +1067,13 @@ export default function App() {
         isDarkMode={isDarkMode}
         toggleDarkMode={toggleDarkMode}
         onNavigate={(v) => {
-            setView(v);
             setShowSideMenu(false);
+            // KYC gate for Tier 2 views
+            if (v === 'wallet' || v === 'fund-account') {
+              navigateWithKYC(v);
+            } else {
+              setView(v);
+            }
         }}
       />
 
@@ -976,7 +1120,7 @@ export default function App() {
       />
 
       {/* Transfer Modal */}
-      <TransferModal 
+      <TransferModal
           isOpen={showTransferModal}
           onClose={() => setShowTransferModal(false)}
           type={transferType}
@@ -984,6 +1128,17 @@ export default function App() {
           userProfile={userProfile}
           onConfirm={handleTransfer}
       />
+
+      {/* KYC Verification Modal (Tier 2 Gate) */}
+      {showKYCModal && kycLinkToken && customerId && (
+        <KYCVerification
+          customerId={parseInt(customerId)}
+          linkToken={kycLinkToken}
+          onSuccess={handleKYCSuccess}
+          onExit={handleKYCExit}
+          onError={(err) => console.error('[Maroon] KYC Error:', err)}
+        />
+      )}
 
     </div>
   );

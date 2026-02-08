@@ -562,6 +562,64 @@ export async function getWalletFundingInfo(customerId: string): Promise<FundingI
 }
 
 // ============================================
+// TRADE ORDER (Buy/Sell via Maroon App)
+// ============================================
+
+export interface TradeOrder {
+  customer_id: string;
+  action: 'buy' | 'sell';
+  metal: string;
+  amount_usd: number;
+  weight_oz: number;
+  price_per_oz: number;
+  fulfillment_type?: 'storage' | 'delivery';
+  storage_type?: 'commingled' | 'segregated';
+  delivery_method?: 'shipping' | 'pickup';
+  payout_method?: string;
+  is_recurring?: boolean;
+  frequency?: string;
+  bulk_items?: { id: string; qty: number; value: number; name: string; weightOz: number }[];
+}
+
+export interface TradeOrderResponse {
+  success: boolean;
+  order_id?: string;
+  order_number?: string;
+  status?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Submit a trade order (buy or sell) through the Command Center
+ */
+export async function createTradeOrder(order: TradeOrder): Promise<ApiResponse<TradeOrderResponse>> {
+  return apiFetch('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify(order),
+  });
+}
+
+// ============================================
+// PLAID HEALTH CHECK
+// ============================================
+
+/**
+ * Check if Plaid service is reachable and credentials are valid
+ */
+export async function checkPlaidHealth(): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/api/plaid/health`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 
