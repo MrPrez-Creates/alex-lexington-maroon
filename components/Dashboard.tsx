@@ -14,7 +14,7 @@ interface DashboardProps {
   onTrade: (action: 'buy' | 'sell', metal: string, amount: number, units: 'usd' | 'oz', price: number) => void;
   onSelectMetal: (metal: string) => void;
   darkMode: boolean;
-  onAction?: (action: 'transfer' | 'trade') => void;
+  onAction?: (action: 'transfer' | 'trade' | 'deposit' | 'withdraw') => void;
 }
 
 type TimeRange = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
@@ -205,18 +205,26 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
       </div>
       
       {/* 1.5 Quick Actions */}
-      <div className="flex gap-4 justify-center pb-2">
-          <button 
-            onClick={() => onAction?.('transfer')}
-            className="flex-1 max-w-[160px] py-3 bg-navy-800 hover:bg-navy-700 text-white font-bold rounded-full transition-colors border border-white/5 shadow-lg"
+      <div className="flex gap-3 justify-center pb-2">
+          <button
+            onClick={() => onAction?.('deposit')}
+            className="flex-1 max-w-[140px] py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-full transition-colors shadow-lg flex items-center justify-center gap-2"
           >
-              Transfer
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+              Deposit
           </button>
-          <button 
+          <button
             onClick={() => onAction?.('trade')}
-            className="flex-1 max-w-[160px] py-3 bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold rounded-full transition-colors shadow-lg shadow-gold-500/20"
+            className="flex-1 max-w-[140px] py-3 bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold rounded-full transition-colors shadow-lg shadow-gold-500/20"
           >
               Buy & Sell
+          </button>
+          <button
+            onClick={() => onAction?.('withdraw')}
+            className="flex-1 max-w-[140px] py-3 bg-navy-800 hover:bg-navy-700 text-white font-bold rounded-full transition-colors border border-white/5 shadow-lg flex items-center justify-center gap-2"
+          >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+              Withdraw
           </button>
       </div>
 

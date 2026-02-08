@@ -10,11 +10,13 @@ interface VaultProps {
   onDelete: (id: string) => void;
   onEdit: (item: BullionItem) => void;
   onSell: (item: BullionItem) => void;
+  onAdd?: () => void;
+  onScan?: () => void;
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'value-desc' | 'value-asc';
 
-const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSell }) => {
+const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSell, onAdd, onScan }) => {
   const [selectedItem, setSelectedItem] = useState<BullionItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<BullionItem | null>(null);
 
@@ -276,8 +278,26 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
           })}
 
           {processedInventory.length === 0 && (
-             <div className="text-center py-20 text-gray-500">
-                <p>No items found.</p>
+             <div className="text-center py-16">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gold-500/10 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h3 className="text-lg font-bold text-navy-900 dark:text-white mb-1">Your vault is empty</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-xs mx-auto">Add your precious metals holdings to track their value in real time.</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
+                  {onScan && (
+                    <button onClick={onScan} className="flex items-center justify-center gap-2 px-5 py-3 bg-gold-500 hover:bg-gold-400 text-navy-900 font-bold rounded-xl transition-colors shadow-lg shadow-gold-500/20 active:scale-95">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Scan Coin / Invoice
+                    </button>
+                  )}
+                  {onAdd && (
+                    <button onClick={onAdd} className="flex items-center justify-center gap-2 px-5 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-colors active:scale-95">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Add Manually
+                    </button>
+                  )}
+                </div>
              </div>
           )}
       </div>

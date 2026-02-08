@@ -5,6 +5,7 @@ interface FundingWalletProps {
   customerId: number;
   onFundingComplete?: () => void;
   onNavigateToFundAccount?: () => void;
+  onWithdraw?: () => void;
   plaidAvailable?: boolean;
 }
 
@@ -45,6 +46,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
   customerId,
   onFundingComplete,
   onNavigateToFundAccount,
+  onWithdraw,
   plaidAvailable = true,
 }) => {
   const [balance, setBalance] = useState<BalanceData | null>(null);
@@ -189,10 +191,11 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5 pb-40">
+
       {/* Balance Card */}
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-white/10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-1">
           <h3 className="text-lg font-semibold text-white">Funding Balance</h3>
           <button
             onClick={() => setShowDeposit(true)}
@@ -202,11 +205,15 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
           </button>
         </div>
 
+        <p className="text-xs text-gray-500 mb-4">
+          Your cash balance for buying precious metals. Fund via ACH or wire, withdraw anytime.
+        </p>
+
         {/* Balance display */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="flex items-baseline gap-4 mb-2">
           <div>
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Available</p>
-            <p className="text-2xl font-bold text-white">
+            <p className="text-3xl font-bold text-white">
               {formatCurrency(balance?.available_balance || 0)}
             </p>
           </div>
@@ -219,24 +226,69 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Info note */}
-        <p className="text-xs text-gray-500 mb-3">
-          Use your funding balance to purchase precious metals instantly.
-        </p>
+      {/* Fund Your Account — Two Options */}
+      <div>
+        <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+          Deposit Funds
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* ACH Bank Transfer */}
+          <button
+            onClick={() => {
+              if (bankAccounts.length > 0) {
+                setShowDeposit(true);
+              } else {
+                setShowAddBank(true);
+              }
+            }}
+            className="bg-slate-800/80 rounded-2xl p-4 border border-white/10 hover:border-green-500/40 transition-all text-left group"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">ACH Bank Transfer</p>
+                <p className="text-green-400 text-[10px] font-bold uppercase tracking-wider">No Fee</p>
+              </div>
+            </div>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              Link your bank via Plaid and transfer funds directly. Takes 1-3 business days.
+            </p>
+            {bankAccounts.length > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 text-[10px] text-green-400 font-medium">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
+                {bankAccounts.length} bank{bankAccounts.length > 1 ? 's' : ''} linked
+              </div>
+            )}
+          </button>
 
-        {/* Wire Transfer CTA */}
-        {onNavigateToFundAccount && (
+          {/* Wire Transfer */}
           <button
             onClick={onNavigateToFundAccount}
-            className="w-full py-2.5 rounded-xl border border-gold-500/30 text-gold-500 text-sm font-medium hover:bg-gold-500/10 transition-colors flex items-center justify-center gap-2"
+            className="bg-slate-800/80 rounded-2xl p-4 border border-white/10 hover:border-gold-500/40 transition-all text-left group"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            Fund via Wire Transfer
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-gold-500/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Bank Wire Transfer</p>
+                <p className="text-gold-500 text-[10px] font-bold uppercase tracking-wider">Same Day</p>
+              </div>
+            </div>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              Send a wire directly to your Alex Lexington account. View wire instructions.
+            </p>
           </button>
-        )}
+        </div>
       </div>
 
       {/* Plaid Unavailable Banner */}
@@ -248,7 +300,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
             </svg>
             <div>
               <p className="text-amber-400 text-sm font-medium mb-1">Bank connection temporarily unavailable</p>
-              <p className="text-gray-400 text-xs">Use wire transfer to fund your account while we restore bank connections.</p>
+              <p className="text-gray-400 text-xs">ACH deposits are paused. Use wire transfer to fund your account while we restore connections.</p>
               {onNavigateToFundAccount && (
                 <button
                   onClick={onNavigateToFundAccount}
@@ -262,11 +314,49 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
         </div>
       )}
 
+      {/* Withdraw Funds Section */}
+      <div>
+        <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+          <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+          Withdraw Funds
+        </h4>
+        <div className="bg-slate-800/80 rounded-2xl p-4 border border-white/10">
+          <p className="text-gray-400 text-xs leading-relaxed mb-3">
+            Withdraw your available balance back to your bank account. When you sell or liquidate metals, proceeds are added to your funding balance and can be withdrawn anytime.
+          </p>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="bg-slate-700/40 rounded-xl p-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">ACH Withdrawal</p>
+              <p className="text-white text-sm font-bold">Free</p>
+              <p className="text-gray-500 text-[10px]">1-3 business days</p>
+            </div>
+            <div className="bg-slate-700/40 rounded-xl p-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Wire Withdrawal</p>
+              <p className="text-white text-sm font-bold">$25 fee</p>
+              <p className="text-gray-500 text-[10px]">Same day*</p>
+            </div>
+          </div>
+          {onWithdraw && (
+            <button
+              onClick={onWithdraw}
+              disabled={(balance?.available_balance || 0) <= 0}
+              className="w-full py-2.5 rounded-xl border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+              {(balance?.available_balance || 0) > 0
+                ? `Withdraw ${formatCurrency(balance?.available_balance || 0)}`
+                : 'No funds to withdraw'
+              }
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Linked Bank Accounts */}
       {plaidAvailable && (
       <div className="bg-slate-800/50 rounded-2xl p-4 border border-white/10">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-gray-300">Linked Accounts</h4>
+          <h4 className="text-sm font-medium text-gray-300">Linked Bank Accounts</h4>
           <button
             onClick={() => setShowAddBank(true)}
             className="text-xs text-blue-400 hover:text-blue-300"
@@ -277,12 +367,18 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
 
         {bankAccounts.length === 0 ? (
           <div className="text-center py-4">
-            <p className="text-gray-500 text-sm mb-3">No bank accounts linked</p>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+            <p className="text-white text-sm font-medium mb-1">No bank accounts linked</p>
+            <p className="text-gray-500 text-xs mb-3">Link a bank to deposit and withdraw via ACH for free.</p>
             <button
               onClick={() => setShowAddBank(true)}
-              className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+              className="bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-400 transition-colors"
             >
-              Link your first bank account
+              Link Bank Account
             </button>
           </div>
         ) : (
@@ -306,7 +402,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
                   </div>
                 </div>
                 {account.is_primary && (
-                  <span className="text-xs text-green-400">Primary</span>
+                  <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Primary</span>
                 )}
               </div>
             ))}
@@ -314,6 +410,40 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
         )}
       </div>
       )}
+
+      {/* How It Works */}
+      <div className="bg-slate-800/30 rounded-2xl p-4 border border-white/5">
+        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">How It Works</h4>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-green-400 text-[10px] font-bold">1</span>
+            </div>
+            <div>
+              <p className="text-white text-xs font-medium">Deposit funds via ACH or Wire</p>
+              <p className="text-gray-500 text-[10px]">ACH is free (1-3 days). Wire is faster (same day).</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-gold-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-gold-500 text-[10px] font-bold">2</span>
+            </div>
+            <div>
+              <p className="text-white text-xs font-medium">Buy precious metals instantly</p>
+              <p className="text-gray-500 text-[10px]">Use your balance to purchase gold, silver, or platinum at live prices.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-blue-400 text-[10px] font-bold">3</span>
+            </div>
+            <div>
+              <p className="text-white text-xs font-medium">Sell & withdraw anytime</p>
+              <p className="text-gray-500 text-[10px]">Liquidate holdings and withdraw proceeds to your bank via ACH or wire.</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Recent Transactions */}
       {balance?.recent_transactions && balance.recent_transactions.length > 0 && (
@@ -331,17 +461,22 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
                   }`}>
                     {tx.type === 'deposit' ? (
                       <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                       </svg>
                     ) : (
                       <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                       </svg>
                     )}
                   </div>
                   <div>
                     <p className="text-white text-sm">
                       {tx.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
+                      {tx.bank_account && (
+                        <span className="text-gray-500 text-[10px] ml-1">
+                          via {tx.bank_account.institution_name} ****{tx.bank_account.account_mask}
+                        </span>
+                      )}
                     </p>
                     <p className="text-gray-500 text-xs">{formatDate(tx.initiated_at)}</p>
                   </div>

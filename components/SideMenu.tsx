@@ -107,17 +107,27 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, user, userProfile,
       }
   };
 
+  // Check if user is admin (has admin email domain or specific role)
+  const isAdmin = displayEmail.endsWith('@alexlexington.com') || displayEmail === 'dre@alexlexington.com';
+
   const menuItems = [
+    // ── User Section ──
+    { icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', label: 'Home', action: () => onNavigate && onNavigate('dashboard') },
     { icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', label: 'Explore', sub: 'Discover features', action: () => onNavigate && onNavigate('explore') },
-    { icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', label: 'Vault Status', sub: 'Active', action: () => onNavigate && onNavigate('vault') },
+    { icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', label: 'Market', sub: 'Live prices', action: () => onNavigate && onNavigate('market') },
+    { icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z', label: 'My Vault', sub: 'Storage & holdings', action: () => onNavigate && onNavigate('vault') },
+    { icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', label: 'Wallet', sub: 'Funding & payments', action: () => onNavigate && onNavigate('wallet') },
     { icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', label: 'Transaction History', action: () => onNavigate && onNavigate('history') },
     { icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', label: 'Payment Methods', sub: `${linkedMethodsCount} Linked`, action: () => onNavigate && onNavigate('payment-methods') },
     { icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', label: 'Documents & Files', action: () => onNavigate && onNavigate('documents') },
-    { icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', label: 'Customers', sub: 'Admin', action: () => onNavigate && onNavigate('customers') },
-    { icon: 'M13 10V3L4 14h7v7l9-11h-7z', label: 'Command Center', sub: 'Risk/ERP', action: () => onNavigate && onNavigate('admin-risk') },
-    { icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z', label: 'Support Center', action: () => onNavigate && onNavigate('contact-support') },
-    { icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', label: 'Admin: Tickets', sub: 'Internal', action: () => onNavigate && onNavigate('admin-support') },
+    { icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z', label: 'Support', action: () => onNavigate && onNavigate('contact-support') },
     { icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z', label: 'Preferences', action: toggleDarkMode, sub: isDarkMode ? 'Dark Mode On' : 'Light Mode On' },
+    // ── Admin Section (only shown to admin users) ──
+    ...(isAdmin ? [
+      { icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', label: 'Customers', sub: 'CRM', action: () => onNavigate && onNavigate('customers') },
+      { icon: 'M13 10V3L4 14h7v7l9-11h-7z', label: 'Command Center', sub: 'Risk/ERP', action: () => onNavigate && onNavigate('admin-risk') },
+      { icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', label: 'Support Tickets', sub: 'Admin', action: () => onNavigate && onNavigate('admin-support') },
+    ] : []),
   ];
 
   return (
@@ -337,28 +347,38 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, user, userProfile,
         {!isEditing && (
             <div className="flex-1 overflow-y-auto no-scrollbar">
                 <div className="border-t border-white/5 mt-6">
-                    {menuItems.map((item, index) => (
-                        <div 
-                            key={index}
-                            onClick={item.action}
-                            className="flex items-center justify-between px-6 py-4 border-b border-white/5 hover:bg-white/5 active:bg-white/10 cursor-pointer transition-colors"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-navy-800 flex items-center justify-center text-gray-400">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium text-white">{item.label}</div>
-                                    {item.sub && <div className="text-[10px] text-gray-500">{item.sub}</div>}
-                                </div>
+                    {menuItems.map((item, index) => {
+                        // Show admin divider before admin section
+                        const isFirstAdmin = isAdmin && item.label === 'Customers';
+                        return (
+                          <React.Fragment key={index}>
+                            {isFirstAdmin && (
+                              <div className="px-6 pt-4 pb-2 border-t border-gold-500/20 mt-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gold-500/60">Admin</span>
+                              </div>
+                            )}
+                            <div
+                              onClick={() => { item.action(); onClose(); }}
+                              className="flex items-center justify-between px-6 py-3.5 border-b border-white/5 hover:bg-white/5 active:bg-white/10 cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-3.5">
+                                  <div className="w-9 h-9 rounded-full bg-navy-800 flex items-center justify-center text-gray-400">
+                                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                                      </svg>
+                                  </div>
+                                  <div>
+                                      <div className="text-sm font-medium text-white">{item.label}</div>
+                                      {item.sub && <div className="text-[10px] text-gray-500">{item.sub}</div>}
+                                  </div>
+                              </div>
+                              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
                             </div>
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </div>
-                    ))}
+                          </React.Fragment>
+                        );
+                    })}
                 </div>
                 <div className="p-6">
                     <button 

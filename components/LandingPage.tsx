@@ -159,28 +159,45 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
       >
         <div className="flex items-center gap-3.5 cursor-pointer" onClick={onEnterApp}>
           <div
-            className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center"
+            className="flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #BD9A5F, #5D452B)',
+              width: '42px',
+              height: '42px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #C9A96E, #BD9A5F, #A8864E)',
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '22px',
-              fontWeight: 300,
-              color: 'white',
+              fontSize: '20px',
+              fontWeight: 600,
+              color: '#0A2240',
             }}
           >
-            AL
+            M
           </div>
-          <div>
+          <div className="flex flex-col">
             <span
               className="block text-white"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 fontSize: '20px',
-                fontWeight: 400,
-                letterSpacing: '0.04em',
+                fontWeight: 500,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
               }}
             >
-              Alex Lexington <span style={{ color: '#BD9A5F', fontWeight: 300 }}>| Maroon</span>
+              Maroon
+            </span>
+            <span
+              className="block"
+              style={{
+                fontSize: '9px',
+                fontWeight: 500,
+                letterSpacing: '0.2em',
+                color: '#BD9A5F',
+                textTransform: 'uppercase',
+                marginTop: '-2px',
+              }}
+            >
+              By Alex Lexington
             </span>
           </div>
         </div>
@@ -732,47 +749,86 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
                     flexDirection: 'column',
                   }}
                 >
-                  {/* Thumbnail for YouTube */}
-                  {item.type === 'youtube' && item.videoId && (
-                    <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                      <img
-                        src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`}
-                        alt=""
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        style={{ display: 'block' }}
-                      />
-                      {/* Play overlay */}
+                  {/* Thumbnail */}
+                  {(() => {
+                    const thumbnailSrc = item.type === 'youtube' && item.videoId
+                      ? `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`
+                      : item.imageUrl || null;
+
+                    if (thumbnailSrc) {
+                      return (
+                        <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                          <img
+                            src={thumbnailSrc}
+                            alt=""
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            style={{ display: 'block' }}
+                          />
+                          {/* Play overlay for YouTube */}
+                          {item.type === 'youtube' && (
+                            <div
+                              className="absolute inset-0 flex items-center justify-center"
+                              style={{ background: 'rgba(0,0,0,0.3)' }}
+                            >
+                              <div
+                                className="flex items-center justify-center rounded-full"
+                                style={{
+                                  width: '52px',
+                                  height: '52px',
+                                  background: 'rgba(255,0,0,0.9)',
+                                }}
+                              >
+                                <svg className="w-5 h-5 ml-1" fill="white" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                          {/* Podcast overlay icon */}
+                          {item.type === 'podcast' && (
+                            <div
+                              className="absolute bottom-3 left-3 flex items-center justify-center rounded-full"
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                background: 'rgba(30,215,96,0.9)',
+                              }}
+                            >
+                              <svg className="w-4 h-4" fill="white" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // Fallback placeholder for items with no image
+                    return (
                       <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{ background: 'rgba(0,0,0,0.3)' }}
+                        className="relative overflow-hidden flex items-center justify-center"
+                        style={{
+                          aspectRatio: '16/9',
+                          background: 'linear-gradient(135deg, rgba(189,154,95,0.08), rgba(13,42,77,0.8))',
+                        }}
                       >
-                        <div
-                          className="flex items-center justify-center rounded-full"
-                          style={{
-                            width: '52px',
-                            height: '52px',
-                            background: 'rgba(255,0,0,0.9)',
-                          }}
-                        >
-                          <svg className="w-5 h-5 ml-1" fill="white" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
+                        <div className="text-center" style={{ color: 'rgba(189,154,95,0.4)' }}>
+                          {item.type === 'podcast' ? (
+                            <svg className="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                            </svg>
+                          )}
+                          <div style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            {item.type === 'podcast' ? 'Podcast' : 'Article'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Blog thumbnail */}
-                  {item.type === 'blog' && item.imageUrl && (
-                    <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                      <img
-                        src={item.imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        style={{ display: 'block' }}
-                      />
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   <div style={{ padding: 'clamp(20px, 2vw, 28px)' }}>
                     {/* Type badge + date */}
@@ -1153,7 +1209,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
               Open Your Account
             </button>
             <a
-              href="tel:+14044507876"
+              href="tel:+14048158893"
               className="transition-all duration-300"
               style={{
                 background: 'rgba(255,255,255,0.04)',
@@ -1169,7 +1225,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
                 display: 'inline-block',
               }}
             >
-              Call Us: (404) 450-7876
+              Call Us: (404) 815-8893
             </a>
           </div>
         </div>

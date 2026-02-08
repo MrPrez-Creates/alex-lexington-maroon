@@ -15,6 +15,8 @@ interface MarketProps {
   onRemoveAlert: (id: string) => void;
   selectedMetal: string | null;
   onSelectMetal: (metal: string | null) => void;
+  onStartChat?: () => void;
+  onNavigate?: (view: string) => void;
 }
 
 const TIME_RANGES = ['1W', '1M', '3M', '1Y', 'ALL'];
@@ -42,7 +44,7 @@ const getMarketStats = (price: number, metal: string) => {
     };
 };
 
-const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddAlert, onRemoveAlert, selectedMetal, onSelectMetal }) => {
+const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddAlert, onRemoveAlert, selectedMetal, onSelectMetal, onStartChat, onNavigate }) => {
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; metal: string } | null>(null);
   const [alertPrice, setAlertPrice] = useState('');
 
@@ -152,7 +154,7 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
       const marketStats = getMarketStats(currentPrice, selectedMetal);
 
       return (
-        <div className="flex flex-col h-full w-full max-w-4xl mx-auto animate-fade-in pb-32 bg-navy-900 min-h-screen fixed inset-0 z-40 overflow-y-auto">
+        <div className="flex flex-col h-full w-full max-w-4xl mx-auto animate-fade-in pb-40 bg-navy-900 min-h-screen fixed inset-0 z-40 overflow-y-auto">
             {/* Added fixed inset above to act as a full page modal over the navigation */}
             
             {/* Header Area */}
@@ -285,7 +287,7 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
 
   // --- LIST VIEW ---
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 space-y-6 animate-fade-in pb-36">
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 space-y-6 animate-fade-in pb-40">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-navy-900 dark:text-white mb-4">Live Markets</h1>
@@ -445,7 +447,66 @@ const Market: React.FC<MarketProps> = ({ prices, assets, onTrade, alerts, onAddA
             )}
         </div>
       </div>
-      
+
+      {/* ── Explore / Discover Section ── */}
+      <div className="space-y-4 mt-2">
+        <h2 className="text-lg font-bold text-navy-900 dark:text-white px-1">Discover</h2>
+
+        {/* Alex Lexington Promo */}
+        <div className="bg-gradient-to-br from-navy-900 to-navy-800 rounded-2xl p-5 relative overflow-hidden border border-gold-500/20">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-gold-500/10 rounded-full blur-[60px] pointer-events-none" />
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-block bg-gold-500/20 text-gold-500 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-widest mb-2 border border-gold-500/30">Trusted Partner</div>
+              <h3 className="text-lg font-serif text-white mb-1">Alex Lexington: Precious Metals</h3>
+              <p className="text-xs text-gray-300 leading-relaxed">Buy, sell, and trade gold, silver, and platinum with premier service.</p>
+            </div>
+            <a href="https://wq5qnr-i1.myshopify.com/pages/invest" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap px-5 py-2.5 bg-gold-500 hover:bg-gold-400 text-navy-900 font-bold rounded-xl text-sm transition-transform active:scale-95 shadow-lg shadow-gold-500/20 flex items-center gap-2">
+              Visit Store
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            </a>
+          </div>
+        </div>
+
+        {/* Quick Links Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {onStartChat && (
+            <div onClick={onStartChat} className="bg-white dark:bg-navy-800 rounded-xl p-4 border border-gray-100 dark:border-navy-700 hover:border-gold-500/40 cursor-pointer transition-colors group">
+              <div className="w-10 h-10 bg-navy-900 dark:bg-white rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <span className="font-serif font-bold text-white dark:text-navy-900">M</span>
+              </div>
+              <h4 className="text-sm font-bold text-navy-900 dark:text-white mb-0.5">Concierge</h4>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">AI assistant</p>
+            </div>
+          )}
+          {onNavigate && (
+            <>
+              <div onClick={() => onNavigate('vault')} className="bg-white dark:bg-navy-800 rounded-xl p-4 border border-gray-100 dark:border-navy-700 hover:border-gold-500/40 cursor-pointer transition-colors group">
+                <div className="w-10 h-10 bg-gold-100 dark:bg-gold-900/20 rounded-full flex items-center justify-center mb-3 text-gold-600 dark:text-gold-500">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h4 className="text-sm font-bold text-navy-900 dark:text-white mb-0.5">My Vault</h4>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Holdings & storage</p>
+              </div>
+              <div onClick={() => onNavigate('documents')} className="bg-white dark:bg-navy-800 rounded-xl p-4 border border-gray-100 dark:border-navy-700 hover:border-blue-500/40 cursor-pointer transition-colors group">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-3 text-blue-600 dark:text-blue-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <h4 className="text-sm font-bold text-navy-900 dark:text-white mb-0.5">Documents</h4>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Invoices & files</p>
+              </div>
+              <div onClick={() => onNavigate('history')} className="bg-white dark:bg-navy-800 rounded-xl p-4 border border-gray-100 dark:border-navy-700 hover:border-green-500/40 cursor-pointer transition-colors group">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-3 text-green-600 dark:text-green-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                </div>
+                <h4 className="text-sm font-bold text-navy-900 dark:text-white mb-0.5">History</h4>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Transactions</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {renderAlertModal()}
     </div>
   );

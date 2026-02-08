@@ -27,7 +27,7 @@
 // =============================================================================
 
 export type ProductSource = 'fiztrade' | 'inventory';
-export type FulfillmentType = 'storage' | 'delivery';
+export type FulfillmentType = 'storage' | 'delivery' | 'ship_to_us';
 
 // =============================================================================
 // VAULT STORAGE FEES (Annual % of portfolio value)
@@ -196,7 +196,7 @@ export function calculateFiztradeBuyPrice(
 
   const markupPercent = fulfillmentType === 'storage'
     ? config.vaultMarkup
-    : config.deliveryMarkup;
+    : config.deliveryMarkup; // 'delivery' and 'ship_to_us' use same markup
 
   const pricePerOz = fiztradePrice * (1 + markupPercent);
   const markupAmount = fiztradePrice * markupPercent;
@@ -259,8 +259,9 @@ export function calculateBuyPrice(
 ): { pricePerOz: number; premiumPercent: number; premiumAmount: number; source: ProductSource } {
   const fulfillmentType = options?.fulfillmentType || (storageType ? 'storage' : 'delivery');
   const weightOz = options?.productWeightOz || 1;
+  const isVault = fulfillmentType === 'storage';
 
-  if (fulfillmentType === 'storage') {
+  if (isVault) {
     // Vault storage - use Fiztrade pricing
     // If we don't have Fiztrade price, estimate it (Fiztrade is typically 1-3% over spot)
     const estimatedFiztradePremium = metal.toLowerCase() === 'silver' ? 0.03 : 0.015;
@@ -409,6 +410,12 @@ export function getPricingSummary(
     return {
       description: 'Fiztrade + markup (vault discount)',
       markupPercent: `${(config.vaultMarkup * 100).toFixed(2)}% over Fiztrade`,
+    };
+  } else if (fulfillmentType === 'ship_to_us') {
+    const config = FIZTRADE_MARKUPS[metal.toLowerCase()] || FIZTRADE_MARKUPS.gold;
+    return {
+      description: 'Fiztrade + markup (ship to US)',
+      markupPercent: `${(config.deliveryMarkup * 100).toFixed(2)}% over Fiztrade`,
     };
   } else {
     const result = calculateInventoryBuyPrice(1, metal, weightOz);

@@ -9,7 +9,7 @@ interface ExploreProps {
 
 const Explore: React.FC<ExploreProps> = ({ onNavigate, onStartChat }) => {
   return (
-    <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-4 space-y-6 animate-fade-in pb-24">
+    <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-4 space-y-6 animate-fade-in pb-40">
       
       {/* Header */}
       <div>

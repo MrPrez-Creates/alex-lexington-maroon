@@ -420,7 +420,7 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="col-span-1">
             <label className="block text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold mb-2">Weight</label>
             <div className="flex">

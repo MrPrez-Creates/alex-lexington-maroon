@@ -64,6 +64,7 @@ import MaverickIntro, { useMaverickIntro } from './components/MaverickIntro';
 import BalanceCheckout, { CheckoutSuccess } from './components/BalanceCheckout';
 import KYCVerification from './components/KYCVerification';
 import { useKYCCheck } from './hooks/useKYCCheck';
+import FizTradeHub from './components/FizTradeHub';
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -132,7 +133,7 @@ export default function App() {
   const [selectedMetal, setSelectedMetal] = useState<string | null>(null);
 
   // ERP Tab State
-  const [erpTab, setErpTab] = useState<'risk' | 'crm' | 'ai'>('risk');
+  const [erpTab, setErpTab] = useState<'risk' | 'crm' | 'ai' | 'fiztrade'>('risk');
 
   // Checkout State
   const [checkoutConfig, setCheckoutConfig] = useState<{
@@ -502,7 +503,11 @@ export default function App() {
     setPendingTradeAction(true);
     setPendingView(null);
 
-    if (!customerId) return;
+    // If no customer record yet, open trade modal directly (it will show pricing/browsing)
+    if (!customerId) {
+      setShowTradeModal(true);
+      return;
+    }
 
     const prefillData = {
       email: apiCustomer?.email || user?.email || undefined,
@@ -669,16 +674,25 @@ export default function App() {
       {/* Top Navigation */}
       <header className="fixed top-0 w-full z-40 bg-white/80 dark:bg-navy-900/80 backdrop-blur-md border-b border-gray-200 dark:border-white/5 transition-colors duration-300">
          <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-               <button 
+            <div className="flex items-center gap-2.5">
+               {/* Hamburger Menu */}
+               <button
                   onClick={() => setShowSideMenu(true)}
-                  className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 text-navy-900 dark:text-white transition-colors group"
+                  className="p-2 -ml-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                  aria-label="Open menu"
                >
-                  <div className="w-8 h-8 bg-gradient-to-br from-gold-400 to-gold-600 transform rotate-45 flex items-center justify-center shadow-lg shadow-gold-500/20 group-hover:rotate-0 transition-transform duration-300">
-                      <span className="font-serif font-bold text-navy-900 text-sm transform -rotate-45 group-hover:rotate-0 transition-transform duration-300">M</span>
-                  </div>
+                  <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
                </button>
-               <span className="font-serif font-bold text-lg text-navy-900 dark:text-white tracking-tight">Maroon</span>
+               {/* Logo */}
+               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #C9A96E, #BD9A5F, #A8864E)' }}>
+                  <span className="font-serif font-semibold text-xs" style={{ color: '#0A2240' }}>M</span>
+               </div>
+               <div className="flex flex-col leading-none">
+                  <span className="font-serif font-semibold text-sm text-navy-900 dark:text-white" style={{ letterSpacing: '0.15em' }}>MAROON</span>
+                  <span className="text-[8px] font-medium" style={{ letterSpacing: '0.18em', color: '#BD9A5F' }}>BY ALEX LEXINGTON</span>
+               </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -718,13 +732,13 @@ export default function App() {
                 }}
                 darkMode={isDarkMode}
                 onAction={(action) => {
-                    if (action === 'transfer') {
-                        setTransferType('deposit');
-                        setShowTransferModal(true);
+                    if (action === 'transfer' || action === 'deposit') {
+                        navigateWithKYC('wallet');
                     } else if (action === 'trade') {
                         openTradeWithKYC('buy', MetalType.GOLD);
-                    } else if (action === 'deposit') {
-                        navigateWithKYC('wallet');
+                    } else if (action === 'withdraw') {
+                        setTransferType('withdraw');
+                        setShowTransferModal(true);
                     }
                 }}
              />
@@ -743,6 +757,16 @@ export default function App() {
                     setTradeConfig({ action: 'sell', metal: item.metalType });
                     setShowTradeModal(true);
                 }}
+                onAdd={() => {
+                    setEditingItem(null);
+                    setAutoStartCamera(false);
+                    setView('add');
+                }}
+                onScan={() => {
+                    setEditingItem(null);
+                    setAutoStartCamera(true);
+                    setView('add');
+                }}
              />
          )}
 
@@ -751,6 +775,10 @@ export default function App() {
                 customerId={customerId ? parseInt(customerId) : 0}
                 onFundingComplete={() => setView('dashboard')}
                 onNavigateToFundAccount={() => setView('fund-account')}
+                onWithdraw={() => {
+                    setTransferType('withdraw');
+                    setShowTransferModal(true);
+                }}
                 plaidAvailable={plaidAvailable}
              />
          )}
@@ -778,7 +806,7 @@ export default function App() {
          )}
 
          {view === 'market' && (
-             <Market 
+             <Market
                 prices={prices}
                 assets={inventory}
                 onTrade={(action, metal) => {
@@ -791,10 +819,9 @@ export default function App() {
                 selectedMetal={selectedMetal}
                 onSelectMetal={(m) => {
                      setSelectedMetal(m);
-                     if (!m && view === 'market') {
-                         // Optional: Handle deselection logic if any specific cleanup needed
-                     }
                 }}
+                onStartChat={() => openLiveChat()}
+                onNavigate={(v) => setView(v as ViewState)}
              />
          )}
          
@@ -827,11 +854,17 @@ export default function App() {
                         >
                             Front Office
                         </button>
-                        <button 
+                        <button
                             onClick={() => setErpTab('ai')}
                             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${erpTab === 'ai' ? 'bg-gold-500 text-navy-900 shadow' : 'text-gray-500 hover:text-navy-900 dark:hover:text-white'}`}
                         >
                             Intelligence
+                        </button>
+                        <button
+                            onClick={() => setErpTab('fiztrade')}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${erpTab === 'fiztrade' ? 'bg-gold-500 text-navy-900 shadow' : 'text-gray-500 hover:text-navy-900 dark:hover:text-white'}`}
+                        >
+                            FizTrade
                         </button>
                     </div>
                  </div>
@@ -840,6 +873,7 @@ export default function App() {
                     {erpTab === 'risk' && <AdminRisk prices={prices} />}
                     {erpTab === 'crm' && <AdminCustomers />}
                     {erpTab === 'ai' && <AIHub onStartChat={openLiveChat} />}
+                    {erpTab === 'fiztrade' && <FizTradeHub prices={prices} />}
                  </div>
              </div>
          )}
@@ -893,7 +927,7 @@ export default function App() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 w-full bg-white dark:bg-navy-900 border-t border-gray-200 dark:border-white/5 pb-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
           <div className="flex justify-around items-center h-16">
-              <button 
+              <button
                 onClick={() => setView('dashboard')}
                 className={`flex flex-col items-center justify-center w-full h-full ${view === 'dashboard' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
               >
@@ -901,7 +935,7 @@ export default function App() {
                   <span className="text-[10px] font-bold uppercase tracking-wide">Home</span>
               </button>
 
-              <button 
+              <button
                 onClick={() => setView('market')}
                 className={`flex flex-col items-center justify-center w-full h-full ${view === 'market' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
               >
@@ -910,7 +944,7 @@ export default function App() {
               </button>
 
               <div className="relative -top-6">
-                  <button 
+                  <button
                     onClick={() => setShowActionSheet(true)}
                     className="w-14 h-14 rounded-full bg-gold-500 hover:bg-gold-400 text-navy-900 flex items-center justify-center shadow-lg shadow-gold-500/30 transition-transform active:scale-95"
                   >
@@ -920,7 +954,7 @@ export default function App() {
 
               <button
                 onClick={() => navigateWithKYC('wallet')}
-                className={`flex flex-col items-center justify-center w-full h-full ${view === 'wallet' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
+                className={`flex flex-col items-center justify-center w-full h-full ${view === 'wallet' || view === 'fund-account' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
               >
                   <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                   <span className="text-[10px] font-bold uppercase tracking-wide">Wallet</span>
@@ -1030,7 +1064,10 @@ export default function App() {
                                 <div className="w-10 h-10 rounded-full bg-navy-900 flex items-center justify-center text-green-500">
                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
                                 </div>
-                                <span className="text-white font-medium text-lg">Deposit Funds</span>
+                                <div className="text-left">
+                                   <span className="text-white font-medium text-lg block">Deposit Funds</span>
+                                   <span className="text-gray-400 text-xs">ACH bank transfer or wire</span>
+                                </div>
                              </div>
                              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                           </button>
@@ -1047,7 +1084,10 @@ export default function App() {
                                 <div className="w-10 h-10 rounded-full bg-navy-900 flex items-center justify-center text-gray-400">
                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
                                 </div>
-                                <span className="text-white font-medium text-lg">Withdraw Funds</span>
+                                <div className="text-left">
+                                   <span className="text-white font-medium text-lg block">Withdraw Funds</span>
+                                   <span className="text-gray-400 text-xs">To your bank via ACH or wire</span>
+                                </div>
                              </div>
                              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                           </button>
