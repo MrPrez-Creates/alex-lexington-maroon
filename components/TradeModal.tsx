@@ -231,12 +231,12 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
       handleWeightChange(oz.toString());
   };
 
-  // Generate a reference number for the order
+  // Generate a reference number for the order (regenerates when step changes)
   const orderRef = useMemo(() => {
       const ts = Date.now().toString(36).toUpperCase();
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
       return `AL-${ts}-${rand}`;
-  }, [step === 'success']); // regenerate only on success step
+  }, [step]);
 
   const handleConfirm = () => {
       if (action === 'buy') {
