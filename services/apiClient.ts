@@ -586,18 +586,32 @@ export interface TradeOrderResponse {
   order_id?: string;
   order_number?: string;
   status?: string;
+  action?: string;
+  metal?: string;
+  weight_oz?: number;
+  amount_usd?: number;
+  price_per_oz?: number;
+  wallet_balance?: number;
   message?: string;
   error?: string;
 }
 
 /**
- * Submit a trade order (buy or sell) through the Command Center
+ * Submit a trade order (buy or sell) via the dedicated trade endpoint.
+ * This creates an invoice, debits/credits the wallet, and records ledger entries.
  */
 export async function createTradeOrder(order: TradeOrder): Promise<ApiResponse<TradeOrderResponse>> {
-  return apiFetch('/api/orders', {
+  return apiFetch('/api/trade', {
     method: 'POST',
     body: JSON.stringify(order),
   });
+}
+
+/**
+ * Get trade orders for a specific customer
+ */
+export async function getCustomerTradeOrders(customerId: string): Promise<ApiResponse<any[]>> {
+  return apiFetch(`/api/trade/customer/${customerId}`);
 }
 
 // ============================================
