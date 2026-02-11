@@ -65,6 +65,7 @@ import BalanceCheckout, { CheckoutSuccess } from './components/BalanceCheckout';
 import KYCVerification from './components/KYCVerification';
 import { useKYCCheck } from './hooks/useKYCCheck';
 import FizTradeHub from './components/FizTradeHub';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -686,7 +687,9 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pt-28 pb-32 scroll-smooth">
+        <ErrorBoundary section="app">
          {view === 'dashboard' && (
+           <ErrorBoundary section="dashboard">
              <Dashboard
                 inventory={inventory}
                 transactions={transactions}
@@ -712,9 +715,11 @@ export default function App() {
                     }
                 }}
              />
+           </ErrorBoundary>
          )}
 
          {view === 'vault' && (
+           <ErrorBoundary section="vault">
              <Vault
                 inventory={inventory}
                 prices={prices}
@@ -738,6 +743,7 @@ export default function App() {
                     setView('add');
                 }}
              />
+           </ErrorBoundary>
          )}
 
          {view === 'wallet' && (
@@ -776,6 +782,7 @@ export default function App() {
          )}
 
          {view === 'market' && (
+           <ErrorBoundary section="market">
              <Market
                 prices={prices}
                 assets={inventory}
@@ -793,8 +800,9 @@ export default function App() {
                 onStartChat={() => openLiveChat()}
                 onNavigate={(v) => setView(v as ViewState)}
              />
+           </ErrorBoundary>
          )}
-         
+
          {view === 'explore' && (
              <Explore
                 onNavigate={(v) => setView(v)}
@@ -892,6 +900,7 @@ export default function App() {
              }}
            />
          )}
+        </ErrorBoundary>
       </main>
 
       {/* Bottom Navigation */}

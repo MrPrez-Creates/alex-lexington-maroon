@@ -351,44 +351,19 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
                       )}
 
                       {linkingStep === 'card-form' && (
-                          <form onSubmit={handleAddCard} className="space-y-4">
-                              <div>
-                                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Card Number</label>
-                                  <input 
-                                    type="text" 
-                                    placeholder="0000 0000 0000 0000" 
-                                    className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg px-4 py-3 text-navy-900 dark:text-white focus:border-gold-500 focus:outline-none"
-                                    value={cardDetails.number}
-                                    onChange={(e) => setCardDetails({...cardDetails, number: e.target.value})}
-                                    required
-                                  />
+                          <div className="space-y-4 text-center py-6">
+                              <div className="w-16 h-16 bg-gray-100 dark:bg-navy-700 rounded-full flex items-center justify-center mx-auto">
+                                  <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                               </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Expiry</label>
-                                      <input 
-                                        type="text" 
-                                        placeholder="MM/YY" 
-                                        className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg px-4 py-3 text-navy-900 dark:text-white focus:border-gold-500 focus:outline-none"
-                                        value={cardDetails.expiry}
-                                        onChange={(e) => setCardDetails({...cardDetails, expiry: e.target.value})}
-                                        required
-                                      />
-                                  </div>
-                                  <div>
-                                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">CVC</label>
-                                      <input 
-                                        type="text" 
-                                        placeholder="123" 
-                                        className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg px-4 py-3 text-navy-900 dark:text-white focus:border-gold-500 focus:outline-none"
-                                        value={cardDetails.cvc}
-                                        onChange={(e) => setCardDetails({...cardDetails, cvc: e.target.value})}
-                                        required
-                                      />
-                                  </div>
-                              </div>
-                              <button type="submit" className="w-full bg-gold-500 hover:bg-gold-600 text-white font-bold py-3 rounded-lg shadow-lg">Save Card</button>
-                          </form>
+                              <h4 className="font-bold text-navy-900 dark:text-white">Secure Card Payments Coming Soon</h4>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Card payments will be processed securely through Stripe. Use bank transfer or wire in the meantime.</p>
+                              <button
+                                  onClick={() => setLinkingStep('select')}
+                                  className="px-6 py-2 bg-gray-200 dark:bg-navy-700 text-gray-700 dark:text-gray-300 font-bold rounded-lg hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
+                              >
+                                  Back
+                              </button>
+                          </div>
                       )}
                   </div>
               </div>
