@@ -425,13 +425,13 @@ const mapApiOrderToTransaction = (apiOrder: any): SharedTransaction => ({
 // ============================================================================
 
 /**
- * Feature flag for using API vs Firebase
- * When true, data syncs to both Firebase AND the Command Center API
+ * Feature flag for API data sync
+ * When true, customer data syncs to the Command Center API
  */
 export const USE_API_SYNC = import.meta.env.VITE_USE_API_SYNC === 'true';
 
 /**
- * Sync customer data to API (call after Firebase operations)
+ * Sync customer data to Command Center API
  */
 export const syncCustomerToApi = async (): Promise<void> => {
   if (!USE_API_SYNC) return;

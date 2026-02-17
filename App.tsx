@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import {
@@ -8,7 +8,7 @@ import {
 import { logoutUser } from './services/authService';
 import {
   getCustomerHoldings,
-  getCustomerHoldingsByFirebaseUid,
+  getCustomerHoldingsByUserId,
   getCustomerOrderHistory,
   getClientVaultHoldings,
   VaultHolding as ApiVaultHolding,
@@ -19,53 +19,59 @@ import {
 } from './services/apiClient';
 import { resolveCustomerId } from './services/apiService';
 import type { SharedCustomer } from './types';
-import { 
-  BullionItem, 
-  SpotPrices, 
-  Transaction, 
-  UserProfile, 
-  PriceAlert, 
-  StoredFile, 
+import {
+  BullionItem,
+  SpotPrices,
+  Transaction,
+  UserProfile,
+  PriceAlert,
+  StoredFile,
   ViewState,
   MetalType,
   AssetForm,
   TransactionType,
   TransactionStatus,
   RecurringFrequency,
-  VaultHolding
+  VaultHolding,
+  CheckoutCartItem
 } from './types';
 import { MOCK_SPOT_PRICES } from './constants';
 
-// Components
+// Critical path components (needed on first render)
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
-import Vault from './components/Vault';
-import AddItem from './components/AddItem';
-import Market from './components/Market';
-import History from './components/History';
-import AIHub from './components/AIHub';
-import Explore from './components/Explore';
-import Documents from './components/Documents';
-import AdminCustomers from './components/AdminCustomers';
-import PaymentMethods from './components/PaymentMethods';
-import LiveChat from './components/LiveChat';
 import LiveTicker from './components/LiveTicker';
-import AuthModal from './components/AuthModal';
-import SideMenu from './components/SideMenu';
-import TradeModal from './components/TradeModal';
-import TransferModal from './components/TransferModal';
 import MarketStatus from './components/MarketStatus';
-import ContactSupport from './components/ContactSupport';
-import AdminSupport from './components/AdminSupport';
-import AdminRisk from './components/AdminRisk';
-import FundingWallet from './components/FundingWallet';
-import FundAccountScreen from './components/FundAccountScreen';
-import MaverickIntro, { useMaverickIntro } from './components/MaverickIntro';
-import BalanceCheckout, { CheckoutSuccess } from './components/BalanceCheckout';
-import KYCVerification from './components/KYCVerification';
+import AuthModal from './components/AuthModal';
+import { useMaverickIntro } from './components/MaverickIntro';
 import { useKYCCheck } from './hooks/useKYCCheck';
-import FizTradeHub from './components/FizTradeHub';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Lazy-loaded components (loaded on demand when user navigates)
+const Vault = lazy(() => import('./components/Vault'));
+const AddItem = lazy(() => import('./components/AddItem'));
+const Market = lazy(() => import('./components/Market'));
+const History = lazy(() => import('./components/History'));
+const AIHub = lazy(() => import('./components/AIHub'));
+const Explore = lazy(() => import('./components/Explore'));
+const Documents = lazy(() => import('./components/Documents'));
+const AdminCustomers = lazy(() => import('./components/AdminCustomers'));
+const PaymentMethods = lazy(() => import('./components/PaymentMethods'));
+const LiveChat = lazy(() => import('./components/LiveChat'));
+const SideMenu = lazy(() => import('./components/SideMenu'));
+const TradeModal = lazy(() => import('./components/TradeModal'));
+const TransferModal = lazy(() => import('./components/TransferModal'));
+const ContactSupport = lazy(() => import('./components/ContactSupport'));
+const AdminSupport = lazy(() => import('./components/AdminSupport'));
+const AdminRisk = lazy(() => import('./components/AdminRisk'));
+const FundingWallet = lazy(() => import('./components/FundingWallet'));
+const FundAccountScreen = lazy(() => import('./components/FundAccountScreen'));
+const MaverickIntro = lazy(() => import('./components/MaverickIntro'));
+const BalanceCheckout = lazy(() => import('./components/BalanceCheckout').then(m => ({ default: m.default })));
+const CheckoutSuccess = lazy(() => import('./components/BalanceCheckout').then(m => ({ default: m.CheckoutSuccess })));
+const KYCVerification = lazy(() => import('./components/KYCVerification'));
+const FizTradeHub = lazy(() => import('./components/FizTradeHub'));
+const CheckoutFlow = lazy(() => import('./components/CheckoutFlow'));
 
 export default function App() {
   // Auth State (Now using Supabase)
@@ -86,7 +92,7 @@ export default function App() {
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [vaultHoldings, setVaultHoldings] = useState<VaultHolding[]>([]);
 
-  // Combined inventory: local Firebase items + API holdings from Supabase
+  // Combined inventory: local items + API holdings from Supabase
   const inventory = useMemo(() => {
     // Dedupe by checking if an API holding matches a local item by source order ID
     const localIds = new Set(localInventory.map(item => item.id));
@@ -136,7 +142,7 @@ export default function App() {
   // ERP Tab State
   const [erpTab, setErpTab] = useState<'risk' | 'crm' | 'ai' | 'fiztrade'>('risk');
 
-  // Checkout State
+  // Checkout State (legacy — kept for backward compat)
   const [checkoutConfig, setCheckoutConfig] = useState<{
     orderId: string;
     orderTotal: number;
@@ -147,6 +153,9 @@ export default function App() {
     transaction_id?: string;
     amount?: number;
   } | null>(null);
+
+  // New Checkout Flow State (Option D — tiered payments)
+  const [checkoutCart, setCheckoutCart] = useState<CheckoutCartItem[]>([]);
 
   // KYC Gate State (Tier 2 access)
   const [showKYCModal, setShowKYCModal] = useState(false);
@@ -183,14 +192,16 @@ export default function App() {
   // --- Effects ---
 
   // 1. Auth Listener (Now using Supabase)
+  // NOTE: This effect must NOT depend on `view` or other state that it modifies,
+  // otherwise it creates a re-render loop (auth fires -> setView -> effect re-runs -> new listener -> fires again).
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
-        if (view === 'landing') setView('dashboard');
-        if (!isRegistrationFlow) setShowAuthModal(false);
+        setView(prev => prev === 'landing' ? 'dashboard' : prev);
+        setShowAuthModal(false);
       }
     });
 
@@ -199,8 +210,8 @@ export default function App() {
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
-        if (view === 'landing') setView('dashboard');
-        if (!isRegistrationFlow) setShowAuthModal(false);
+        setView(prev => prev === 'landing' ? 'dashboard' : prev);
+        setShowAuthModal(false);
       } else {
         setView('landing');
         setLocalInventory([]);
@@ -212,11 +223,14 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, [view, isRegistrationFlow]);
+  }, []);
 
   // 1b. Resolve authenticated user -> Command Center customer record
+  // Use user.id as dependency instead of the full user object to avoid re-running
+  // when the user object reference changes but the actual user hasn't changed.
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setCustomerId(null);
       setApiCustomer(null);
       return;
@@ -242,7 +256,7 @@ export default function App() {
     });
 
     return () => { cancelled = true; };
-  }, [user]);
+  }, [userId]);
 
   // 1c. Plaid health check — test connectivity after customer resolves
   useEffect(() => {
@@ -255,7 +269,7 @@ export default function App() {
     });
   }, [customerId]);
 
-  // 2. Build user profile from API customer data (replaces Firebase subscription)
+  // 2. Build user profile from API customer data
   useEffect(() => {
       if (!user) {
           setUserProfile(null);
@@ -279,7 +293,7 @@ export default function App() {
       }
   }, [user, apiCustomer]);
 
-  // 3. Data from API (replaces Firebase subscriptions when customerId is available)
+  // 3. Data from API (loads when customerId is available)
   useEffect(() => {
       if (!user) return;
       if (customerLoading) return;
@@ -391,7 +405,7 @@ export default function App() {
       // No customerId yet — data will show as empty until customer resolves
   }, [user, customerId, customerLoading]);
 
-  // 3b. Alerts & files - managed locally (Firebase removed)
+  // 3b. Alerts & files - managed locally
   // Price alerts are client-side only; documents coming soon
 
   // 4. Price Ticker
@@ -615,6 +629,34 @@ export default function App() {
       setView('vault');
   };
 
+  // --- Memoized Callbacks (prevent unnecessary child re-renders) ---
+
+  const handleDashboardTrade = useCallback((action: 'buy' | 'sell', metal: string) => {
+    setTradeConfig({ action, metal });
+    setShowTradeModal(true);
+  }, []);
+
+  const handleDashboardSelectMetal = useCallback((metal: string) => {
+    setSelectedMetal(metal);
+    setView('market');
+  }, []);
+
+  const handleDashboardAction = useCallback((action: 'transfer' | 'trade' | 'deposit' | 'withdraw') => {
+    if (action === 'transfer' || action === 'deposit') {
+      navigateWithKYC('wallet');
+    } else if (action === 'trade') {
+      openTradeWithKYC('buy', MetalType.GOLD);
+    } else if (action === 'withdraw') {
+      setTransferType('withdraw');
+      setShowTransferModal(true);
+    }
+  }, [navigateWithKYC, openTradeWithKYC]);
+
+  const handleMarketTrade = useCallback((action: 'buy' | 'sell', metal: string) => {
+    setTradeConfig({ action, metal });
+    setShowTradeModal(true);
+  }, []);
+
   // --- Render ---
 
   if (view === 'landing' && !user) {
@@ -688,6 +730,7 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pt-28 pb-32 scroll-smooth">
         <ErrorBoundary section="app">
+        <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" /></div>}>
          {view === 'dashboard' && (
            <ErrorBoundary section="dashboard">
              <Dashboard
@@ -695,26 +738,68 @@ export default function App() {
                 transactions={transactions}
                 prices={prices}
                 cashBalance={apiCustomer?.cashBalance ?? userProfile?.cashBalance ?? 0}
-                onTrade={(action, metal) => {
-                    setTradeConfig({ action, metal });
-                    setShowTradeModal(true);
-                }}
-                onSelectMetal={(metal) => {
-                    setSelectedMetal(metal);
-                    setView('market');
-                }}
+                onTrade={handleDashboardTrade}
+                onSelectMetal={handleDashboardSelectMetal}
                 darkMode={isDarkMode}
-                onAction={(action) => {
-                    if (action === 'transfer' || action === 'deposit') {
-                        navigateWithKYC('wallet');
-                    } else if (action === 'trade') {
-                        openTradeWithKYC('buy', MetalType.GOLD);
-                    } else if (action === 'withdraw') {
-                        setTransferType('withdraw');
-                        setShowTransferModal(true);
-                    }
-                }}
+                onAction={handleDashboardAction}
              />
+             {/* === TEST ONLY — Test Checkout Flow (remove after testing) === */}
+             {new URLSearchParams(window.location.search).has('testcheckout') && customerId && (
+               <div className="mx-4 mb-6 p-4 bg-red-500/10 border-2 border-dashed border-red-500/40 rounded-xl">
+                 <p className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">⚠️ Dev Only — Test Checkout</p>
+                 <button
+                   onClick={() => {
+                     setCheckoutCart([
+                       {
+                         sku: 'TEST-GOLD-EAGLE',
+                         description: '1 oz American Gold Eagle',
+                         metal_type: 'gold',
+                         weight_ozt: 1,
+                         quantity: 2,
+                         unit_price: 2850,
+                         extended_price: 5700,
+                         spot_at_order: 2780,
+                       },
+                       {
+                         sku: 'TEST-SILVER-BAR',
+                         description: '10 oz Silver Bar (Generic)',
+                         metal_type: 'silver',
+                         weight_ozt: 10,
+                         quantity: 3,
+                         unit_price: 345,
+                         extended_price: 1035,
+                         spot_at_order: 32.5,
+                       },
+                     ]);
+                     setView('checkout');
+                   }}
+                   className="w-full py-3 bg-red-500 hover:bg-red-400 text-white rounded-lg font-bold text-sm transition-colors"
+                 >
+                   Test Checkout Flow ($6,735)
+                 </button>
+                 <button
+                   onClick={() => {
+                     setCheckoutCart([
+                       {
+                         sku: 'TEST-GOLD-KILOBAR',
+                         description: '1 kg Gold Bar (PAMP Suisse)',
+                         metal_type: 'gold',
+                         weight_ozt: 32.15,
+                         quantity: 1,
+                         unit_price: 89500,
+                         extended_price: 89500,
+                         spot_at_order: 2780,
+                       },
+                     ]);
+                     setView('checkout');
+                   }}
+                   className="w-full py-3 mt-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg font-bold text-sm transition-colors"
+                 >
+                   Test Large Order ($89,500 — Deposit Flow)
+                 </button>
+               </div>
+             )}
+             {/* === END TEST ONLY — remove after testing === */}
            </ErrorBoundary>
          )}
 
@@ -786,17 +871,12 @@ export default function App() {
              <Market
                 prices={prices}
                 assets={inventory}
-                onTrade={(action, metal) => {
-                    setTradeConfig({ action, metal });
-                    setShowTradeModal(true);
-                }}
+                onTrade={handleMarketTrade}
                 alerts={alerts}
                 onAddAlert={(alert: PriceAlert) => setAlerts(prev => [...prev, alert])}
                 onRemoveAlert={(id: string) => setAlerts(prev => prev.filter(a => a.id !== id))}
                 selectedMetal={selectedMetal}
-                onSelectMetal={(m) => {
-                     setSelectedMetal(m);
-                }}
+                onSelectMetal={setSelectedMetal}
                 onStartChat={() => openLiveChat()}
                 onNavigate={(v) => setView(v as ViewState)}
              />
@@ -851,7 +931,15 @@ export default function App() {
                     {erpTab === 'risk' && <AdminRisk prices={prices} />}
                     {erpTab === 'crm' && <AdminCustomers />}
                     {erpTab === 'ai' && <AIHub onStartChat={openLiveChat} />}
-                    {erpTab === 'fiztrade' && <FizTradeHub prices={prices} />}
+                    {erpTab === 'fiztrade' && (
+                      <FizTradeHub
+                        prices={prices}
+                        onCheckout={(items: CheckoutCartItem[]) => {
+                          setCheckoutCart(items);
+                          setView('checkout');
+                        }}
+                      />
+                    )}
                  </div>
              </div>
          )}
@@ -860,7 +948,31 @@ export default function App() {
          {view === 'admin-support' && <AdminSupport />}
          {view === 'admin-risk' && <AdminRisk prices={prices} />}
 
-         {view === 'checkout' && checkoutConfig && (
+         {/* New Checkout Flow (Option D — tiered payments) */}
+         {view === 'checkout' && checkoutCart.length > 0 && (
+           <div className="max-w-lg mx-auto px-4 py-6">
+             <CheckoutFlow
+               customerId={customerId ? parseInt(customerId) : 0}
+               customerName={apiCustomer ? `${apiCustomer.firstName} ${apiCustomer.lastName}` : userProfile?.name}
+               alAccountNumber={apiCustomer?.alAccountNumber}
+               cart={checkoutCart}
+               onComplete={(result) => {
+                 setCheckoutCart([]);
+                 setCheckoutResult({ order_id: result.order_id, amount: checkoutCart.reduce((s, i) => s + i.extended_price, 0) });
+               }}
+               onCancel={() => {
+                 setCheckoutCart([]);
+                 setView('explore');
+               }}
+               onFundAccount={(deficit) => {
+                 setView('fund-account');
+               }}
+             />
+           </div>
+         )}
+
+         {/* Legacy Balance Checkout (for non-cart flows) */}
+         {view === 'checkout' && checkoutCart.length === 0 && checkoutConfig && (
            <div className="max-w-lg mx-auto px-4 py-6">
              <BalanceCheckout
                orderId={checkoutConfig.orderId}
@@ -900,6 +1012,7 @@ export default function App() {
              }}
            />
          )}
+       </Suspense>
         </ErrorBoundary>
       </main>
 
@@ -1077,7 +1190,8 @@ export default function App() {
       )}
 
       {/* Side Menu */}
-      <SideMenu 
+      <Suspense fallback={null}>
+      <SideMenu
         isOpen={showSideMenu} 
         onClose={() => setShowSideMenu(false)} 
         user={user}
@@ -1158,6 +1272,7 @@ export default function App() {
           onError={(err) => console.error('[Maroon] KYC Error:', err)}
         />
       )}
+      </Suspense>
 
     </div>
   );

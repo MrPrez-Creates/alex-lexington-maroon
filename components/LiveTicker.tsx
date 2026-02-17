@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { SpotPrices } from '../types';
+import { getLatestPriceChanges } from '../services/marketData';
 
 interface LiveTickerProps {
   prices: SpotPrices;
@@ -13,22 +14,20 @@ interface TickerItem {
 }
 
 export default function LiveTicker({ prices }: LiveTickerProps) {
-  
+
   const tickerData = useMemo(() => {
     if (!prices) return [];
-    
-    // Convert the price object into an array for the ticker
+
+    const changes = getLatestPriceChanges();
+
     return Object.entries(prices).map(([key, value]) => {
-      // Mock change data for visual flair since raw spot price feed is simple key-value
-      // In a production app, this would be calculated from previous close
-      const isPositive = ['gold', 'platinum'].includes(key.toLowerCase());
-      const changePct = isPositive ? 0.45 : -0.23;
-      
+      const changeData = changes[key.toLowerCase()];
+
       return {
         label: key.toUpperCase(),
         price: value,
-        change: `${Math.abs(changePct).toFixed(2)}%`,
-        trend: changePct >= 0 ? 'up' : 'down'
+        change: changeData?.change ?? '0.00%',
+        trend: changeData?.trend ?? 'up',
       } as TickerItem;
     });
   }, [prices]);
@@ -60,20 +59,20 @@ export default function LiveTicker({ prices }: LiveTickerProps) {
           }
         `}
       </style>
-      
+
       <div className="ticker-track">
         {displayData.map((item, index) => (
           <div key={`${item.label}-${index}`} className="flex items-center gap-2 px-6 border-r border-gray-100 dark:border-white/5 last:border-0">
             <span className={`w-1.5 h-1.5 rounded-full ${item.trend === 'up' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            
+
             <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 tracking-widest">
               {item.label}
             </span>
-            
+
             <span className="text-sm font-bold text-navy-900 dark:text-white font-mono">
               ${item.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </span>
-            
+
             <span className={`text-xs font-semibold flex items-center ${item.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
               <span className="mr-0.5 text-[8px]">{item.trend === 'up' ? '▲' : '▼'}</span>
               {item.change}

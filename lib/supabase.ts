@@ -1,6 +1,6 @@
 /**
  * Supabase Client for Maroon Customer App
- * Replaces Firebase Auth for unified authentication with Command Center
+ * Unified authentication with Command Center
  */
 
 import { createClient } from '@supabase/supabase-js'

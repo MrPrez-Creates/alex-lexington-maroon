@@ -277,17 +277,15 @@ export async function getCustomerHoldings(
 }
 
 /**
- * Get customer holdings by user ID (Supabase or Firebase UID)
- * (Used by Maroon app - endpoint supports both Firebase and Supabase UIDs via maroon_user_id field)
+ * Get customer holdings by Supabase Auth UID
+ * Used by Maroon app to look up vault holdings via maroon_user_id
  */
-export async function getCustomerHoldingsByFirebaseUid(
+export async function getCustomerHoldingsByUserId(
   userId: string,
   includeHistory = false
 ): Promise<ApiResponse<CustomerVaultResponse>> {
   const query = includeHistory ? '?include_history=true' : '';
-  // Note: The endpoint name still says "firebase" but it looks up by maroon_user_id
-  // which now stores Supabase UIDs for new users
-  return apiFetch(`/api/customer-vault/by-firebase/${userId}/holdings${query}`);
+  return apiFetch(`/api/customer-vault/by-uid/${userId}/holdings${query}`);
 }
 
 /**

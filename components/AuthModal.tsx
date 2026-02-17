@@ -69,7 +69,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
       console.error(err);
       if (isRegistering) onRegistrationFlow(false); // Reset on error
 
-      // Handle specific Firebase Error Codes
+      // Handle Supabase Auth error codes
       const errorCode = err.code || '';
       const errorMessage = err.message || '';
 
@@ -161,12 +161,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
         // Specific error for AI Studio / StackBlitz previews
         setError("Google Login is restricted in this preview pane. Please open the app in a new tab (↗) to sign in.");
       } else if (errorCode === 'auth/unauthorized-domain') {
-        setError("This domain is not authorized. Please add it to Authorized Domains in Firebase Console.");
+        setError("This domain is not authorized for authentication.");
       } else if (errorCode === 'auth/invalid-credential') {
         setError("Unable to authenticate with Google. Domain may not be authorized.");
       } else {
-        // Clean up raw firebase error messages for display
-        const cleanMsg = err.message.replace("Firebase: ", "").replace(/\(auth\/.*\)\.?/, "");
+        // Clean up raw auth error messages for display
+        const cleanMsg = err.message.replace(/^(Firebase|AuthApiError): /i, "").replace(/\(auth\/.*\)\.?/, "");
         setError(cleanMsg || "Google sign-in failed.");
       }
     }

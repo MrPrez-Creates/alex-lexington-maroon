@@ -1,6 +1,6 @@
 /**
  * Auth Service for Maroon Customer App
- * Pure Supabase auth - no Firebase dependencies
+ * Supabase Auth — handles login, registration, OAuth, and OTP
  */
 
 import { supabase } from '../lib/supabase';

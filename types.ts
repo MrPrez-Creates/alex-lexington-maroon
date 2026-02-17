@@ -238,7 +238,7 @@ export interface SharedCustomer {
   email: string;
   type: 'RETAIL' | 'WHOLESALE' | 'INDUSTRY';
   kycStatus: 'VERIFIED' | 'PENDING' | 'FAILED' | 'unverified';
-  maroonUserId: string; // Firebase Auth UID - links to Maroon app user
+  maroonUserId: string; // Supabase Auth UID - links to Maroon app user
   cashBalance: number;
   fundingBalance?: number; // Balance available for purchases (0% fee)
   pendingDeposits?: number; // Deposits in transit
@@ -278,6 +278,20 @@ export interface SharedTransaction {
   paymentMethod?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Cart item for checkout flow
+export interface CheckoutCartItem {
+  sku: string;
+  description: string;
+  metal_type: string;
+  weight_ozt: number;
+  quantity: number;
+  unit_price: number;
+  extended_price: number;
+  product_id?: string;
+  metal_id?: number;
+  spot_at_order?: number;
 }
 
 // Task for Command Center task queue

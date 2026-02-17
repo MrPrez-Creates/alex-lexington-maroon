@@ -27,6 +27,16 @@ import { getCustomers } from '../services/apiClient';
 
 interface FizTradeHubProps {
   prices: SpotPrices;
+  onCheckout?: (items: Array<{
+    sku: string;
+    description: string;
+    metal_type: string;
+    weight_ozt: number;
+    quantity: number;
+    unit_price: number;
+    extended_price: number;
+    spot_at_order?: number;
+  }>) => void;
 }
 
 interface InvoiceLineItem {
@@ -174,7 +184,7 @@ function groupProductsByCategory(products: FizTradeProduct[]): ProductCategory[]
 // COMPONENT
 // ============================================
 
-const FizTradeHub: React.FC<FizTradeHubProps> = ({ prices }) => {
+const FizTradeHub: React.FC<FizTradeHubProps> = ({ prices, onCheckout }) => {
   // --- Sub-view navigation ---
   const [activeView, setActiveView] = useState<SubView>('browse');
 
@@ -1222,40 +1232,65 @@ const FizTradeHub: React.FC<FizTradeHubProps> = ({ prices }) => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={clearInvoice}
-                  className="px-4 py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={handleSaveQuote}
-                  disabled={savingQuote || invoiceItems.length === 0}
-                  className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
-                    savingQuote || invoiceItems.length === 0
-                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                      : 'bg-navy-700 border border-gold-500/30 text-gold-500 hover:bg-gold-500/10'
-                  }`}
-                >
-                  {savingQuote ? 'Saving...' : 'Save as Quote'}
-                </button>
-                <button
-                  onClick={handleLockPrices}
-                  disabled={isLocking || invoiceItems.length === 0 || !marketStatus.isOpen}
-                  className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg ${
-                    isLocking || invoiceItems.length === 0 || !marketStatus.isOpen
-                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                      : 'bg-gold-500 hover:bg-gold-400 text-navy-900 shadow-gold-500/20 active:scale-[0.98]'
-                  }`}
-                >
-                  {isLocking ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-navy-900 border-t-transparent rounded-full animate-spin" />
-                      Locking...
-                    </span>
-                  ) : !marketStatus.isOpen ? 'Market Closed' : 'Lock & Execute'}
-                </button>
+              <div className="space-y-3">
+                {/* Proceed to Checkout (customer-facing flow) */}
+                {onCheckout && invoiceItems.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const cartItems = invoiceItems.map(item => ({
+                        sku: item.sku,
+                        description: item.description,
+                        metal_type: item.metalType,
+                        weight_ozt: item.weight,
+                        quantity: item.quantity,
+                        unit_price: item.retailPrice,
+                        extended_price: item.lineTotal,
+                        spot_at_order: item.fiztradeAskPrice,
+                      }));
+                      onCheckout(cartItems);
+                    }}
+                    className="w-full py-4 bg-gold-500 hover:bg-gold-400 text-navy-900 rounded-xl font-bold text-sm uppercase tracking-widest transition-all shadow-lg shadow-gold-500/20 active:scale-[0.98]"
+                  >
+                    Proceed to Checkout — ${invoiceTotals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </button>
+                )}
+
+                {/* Staff action buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={clearInvoice}
+                    className="px-4 py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={handleSaveQuote}
+                    disabled={savingQuote || invoiceItems.length === 0}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+                      savingQuote || invoiceItems.length === 0
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : 'bg-navy-700 border border-gold-500/30 text-gold-500 hover:bg-gold-500/10'
+                    }`}
+                  >
+                    {savingQuote ? 'Saving...' : 'Save as Quote'}
+                  </button>
+                  <button
+                    onClick={handleLockPrices}
+                    disabled={isLocking || invoiceItems.length === 0 || !marketStatus.isOpen}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg ${
+                      isLocking || invoiceItems.length === 0 || !marketStatus.isOpen
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : 'bg-gold-500 hover:bg-gold-400 text-navy-900 shadow-gold-500/20 active:scale-[0.98]'
+                    }`}
+                  >
+                    {isLocking ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-navy-900 border-t-transparent rounded-full animate-spin" />
+                        Locking...
+                      </span>
+                    ) : !marketStatus.isOpen ? 'Market Closed' : 'Lock & Execute'}
+                  </button>
+                </div>
               </div>
             </>
           )}

@@ -34,10 +34,13 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
     setPlaidError(null);
 
     try {
+      // redirect_uri required for OAuth banks (Chase, Wells Fargo, etc.)
+      const redirectUri = `${window.location.origin}/maroon/wallet/fund`;
+
       const response = await fetch(`${API_BASE}/api/plaid/create-link-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: customerId }),
+        body: JSON.stringify({ customer_id: customerId, redirect_uri: redirectUri }),
       });
 
       const data = await response.json();

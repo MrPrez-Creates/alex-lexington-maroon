@@ -1,13 +1,17 @@
 
 import { SpotPrices, MetalType, MarketHistoryRecord } from '../types';
 import { MOCK_SPOT_PRICES } from '../constants';
-// Market history now uses static data only (Firebase persistence removed)
+// Market history uses static data only
 
 const LIVE_TICKER_URL = 'https://alex-app-live-ticker.andre-46c.workers.dev/';
 
 export interface HistoricalDataPoint {
   date: string;
   value: number;
+}
+
+export interface PriceChangeData {
+  [key: string]: { change: string; trend: 'up' | 'down' };
 }
 
 // Sampled Historical Data from 1985-2026
@@ -174,34 +178,50 @@ const updateSessionHistory = (prices: SpotPrices) => {
     }
 };
 
+// Module-level cache for price change data from the live ticker API
+let _latestPriceChanges: PriceChangeData = {};
+
+export const getLatestPriceChanges = (): PriceChangeData => _latestPriceChanges;
+
 export const fetchLiveSpotPrices = async (): Promise<SpotPrices> => {
   try {
     const response = await fetch(LIVE_TICKER_URL);
     if (!response.ok) throw new Error('Failed to fetch live prices');
     const data = await response.json();
-    
+
     // Initialize with fallback
     const formattedPrices: SpotPrices = { ...MOCK_SPOT_PRICES };
-    
+    const changes: PriceChangeData = {};
+
     if (Array.isArray(data)) {
         data.forEach((item: any) => {
             const key = item.label || item.name;
             const priceStr = String(item.price).replace(/[^0-9.]/g, '');
             const price = parseFloat(priceStr);
-            
+
             if (key && !isNaN(price)) {
                 // Normalize keys to lowercase to match MetalType enum
                 const normalizedKey = key.toLowerCase();
                 if (Object.values(MetalType).includes(normalizedKey as MetalType)) {
                     formattedPrices[normalizedKey] = price;
+                    // Capture change/trend data from the API response
+                    if (item.change && item.trend) {
+                        changes[normalizedKey] = {
+                            change: item.change,
+                            trend: item.trend as 'up' | 'down',
+                        };
+                    }
                 }
             }
         });
     }
-    
+
+    // Store latest change data for the ticker
+    _latestPriceChanges = changes;
+
     // Update session cache with latest prices
     updateSessionHistory(formattedPrices);
-    
+
     return formattedPrices;
   } catch (error) {
     console.warn('API Error fetching live prices, using fallback data:', error);
