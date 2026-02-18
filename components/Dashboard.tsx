@@ -114,18 +114,18 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
   // Storage Stats Calculation
   const storageStats = useMemo(() => {
       const vaultValue = inventory.reduce((total, item) => {
-          const isVaulted = (item.mint?.toLowerCase().includes('alex lexington') && item.mint?.toLowerCase().includes('digital')) || 
-                            item.name.startsWith('Maroon') ||
-                            item.notes?.includes('Storage:');
+          const isVaulted = (item.mint?.toLowerCase().includes('alex lexington')) ||
+                            item.id.startsWith('web-') ||
+                            item.id.startsWith('vault-') ||
+                            item.notes?.includes('In Our Storage');
           if (isVaulted) {
               return total + calculateItemValue(item, prices[item.metalType] || 0);
           }
           return total;
       }, 0);
 
-      // Assume Commingled (0.85%) as default view for dashboard unless specifically marked otherwise
-      // Ideally this preference would be saved in user profile, but calculating both for awareness
-      const rate = 0.0085;
+      // Segregated storage rate (1.25%) — all storage is segregated
+      const rate = 0.0125;
       const min = 200;
       const calculatedFee = vaultValue * rate;
       const actualFee = Math.max(calculatedFee, min);

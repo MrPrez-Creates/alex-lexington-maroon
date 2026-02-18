@@ -31,7 +31,7 @@ interface TradeModalProps {
       units: 'usd' | 'oz', 
       price: number, 
       inventoryItemId?: string,
-      storageType?: 'commingled' | 'segregated',
+      storageType?: 'segregated',
       payoutMethod?: 'balance' | 'wire' | 'ach' | 'check' | string,
       isRecurring?: boolean,
       frequency?: RecurringFrequency,
@@ -60,9 +60,6 @@ const STORAGE_POLICY_TEXT = `SECTION [X] - PRECIOUS METALS STORAGE PROGRAM... (F
 
 type Step = 'input' | 'review' | 'success';
 
-// Management Flag: Disable Commingled Storage temporarily
-const DISABLE_COMMINGLED = true;
-
 // Helper Interface for Sell Calculation
 interface SellItem extends BullionItem {
     sellQty: number;
@@ -82,7 +79,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
   
   // Fulfillment & Storage State
   const [fulfillmentType, setFulfillmentType] = useState<'storage' | 'delivery'>('storage');
-  const [storageType, setStorageType] = useState<'commingled' | 'segregated'>('commingled');
+  const storageType = 'segregated' as const; // All storage is always segregated
   const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
   
   const [isRecurring, setIsRecurring] = useState(false);
@@ -110,8 +107,6 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
         setBuyWeightStr('');
         setSelectedItems({});
         setFulfillmentType('storage');
-        // Default to segregated if commingled is disabled
-        setStorageType(DISABLE_COMMINGLED ? 'segregated' : 'commingled');
         setDeliveryMethod('shipping');
         setPolicyAccepted(false);
         setIsRecurring(false);
@@ -119,12 +114,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
     }
   }, [isOpen, initialAction, initialMetal]);
 
-  // Enforce Storage Rules for Platinum/Palladium
-  useEffect(() => {
-      if ((metal === MetalType.PLATINUM || metal === MetalType.PALLADIUM) && fulfillmentType === 'storage') {
-          setStorageType('segregated');
-      }
-  }, [metal, fulfillmentType]);
+  // Storage is always segregated — no enforcement needed
 
   // Filter available chips based on metal type
   const availableChips = useMemo(() => {
@@ -281,8 +271,6 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
       if (step === 'review') return 'Review Transaction';
       return action === 'buy' ? 'Execute Trade' : 'Sell Assets';
   };
-
-  const isRestrictedStorage = metal === MetalType.PLATINUM || metal === MetalType.PALLADIUM;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-navy-900/90 backdrop-blur-md animate-fade-in p-4">
@@ -536,7 +524,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                                         {currentWeightVal.toFixed(4)} OZ
                                     </div>
                                     <div className="text-gold-500 font-bold capitalize mb-4">
-                                        {metal} {fulfillmentType === 'storage' && '(Allocated)'}
+                                        {metal}
                                     </div>
                                     <div className="flex justify-between items-center border-t border-white/10 pt-4 mt-2">
                                         <span className="text-gray-400 text-xs">Total Value</span>
@@ -596,32 +584,9 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                                 {fulfillmentType === 'storage' ? (
                                     <div className="animate-fade-in">
                                         <div className="flex items-center justify-between mb-4">
-                                            <span className="text-xs font-bold text-gray-400 uppercase">Storage Type</span>
-                                            <div className="flex bg-navy-800 rounded-lg p-1">
-                                                <button
-                                                    onClick={() => !isRestrictedStorage && !DISABLE_COMMINGLED && setStorageType('commingled')}
-                                                    disabled={isRestrictedStorage || DISABLE_COMMINGLED}
-                                                    className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${
-                                                        storageType === 'commingled'
-                                                        ? 'bg-white/20 text-white'
-                                                        : (isRestrictedStorage || DISABLE_COMMINGLED) ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-white'
-                                                    }`}
-                                                >
-                                                    Commingled
-                                                </button>
-                                                <button
-                                                    onClick={() => setStorageType('segregated')}
-                                                    className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${storageType === 'segregated' ? 'bg-white/20 text-white' : 'text-gray-400 hover:text-white'}`}
-                                                >
-                                                    Segregated
-                                                </button>
-                                            </div>
+                                            <span className="text-xs font-bold text-gray-400 uppercase">Storage</span>
+                                            <span className="text-xs text-white font-bold">Segregated Vault</span>
                                         </div>
-                                        {isRestrictedStorage && (
-                                            <p className="text-[9px] text-yellow-500/80 mb-2 -mt-2">
-                                                * {metal.charAt(0).toUpperCase() + metal.slice(1)} requires segregated storage.
-                                            </p>
-                                        )}
 
                                         {/* Storage Fee Display */}
                                         {(() => {
@@ -781,7 +746,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
                                     {fulfillmentType === 'storage' && (
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs text-gray-400">Storage</span>
-                                            <span className="text-xs text-gold-500 capitalize">{storageType} Vault</span>
+                                            <span className="text-xs text-gold-500">Segregated Vault</span>
                                         </div>
                                     )}
                                     {fulfillmentType === 'delivery' && (

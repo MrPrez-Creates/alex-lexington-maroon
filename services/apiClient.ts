@@ -571,7 +571,7 @@ export interface TradeOrder {
   weight_oz: number;
   price_per_oz: number;
   fulfillment_type?: 'storage' | 'delivery';
-  storage_type?: 'commingled' | 'segregated';
+  storage_type?: 'segregated';
   delivery_method?: 'shipping' | 'pickup';
   payout_method?: string;
   is_recurring?: boolean;

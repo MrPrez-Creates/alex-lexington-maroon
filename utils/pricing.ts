@@ -316,7 +316,7 @@ export function calculateSellPrice(
  */
 export function calculateStorageFee(
   portfolioValue: number,
-  storageType: 'commingled' | 'segregated' = 'commingled'
+  storageType: 'commingled' | 'segregated' = 'segregated'
 ): { annualFee: number; monthlyFee: number; effectiveRate: number } {
   const config = VAULT_STORAGE_FEES[storageType];
 

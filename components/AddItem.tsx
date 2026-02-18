@@ -45,19 +45,16 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
     sku: ''
   });
 
-  // Check if this is a locked/vaulted asset
+  // Check if this item is stored at Alex Lexington
   const isVaulted = initialItem ? (
-      (initialItem.mint?.toLowerCase().includes('alex lexington') && (initialItem.mint?.toLowerCase().includes('digital') || initialItem.mint?.toLowerCase().includes('vault'))) ||
-      initialItem.name?.startsWith('Maroon') ||
-      initialItem.notes?.includes('Storage:')
+      (initialItem.mint?.toLowerCase().includes('alex lexington')) ||
+      initialItem.id?.startsWith('web-') ||
+      initialItem.id?.startsWith('vault-') ||
+      initialItem.notes?.includes('In Our Storage')
   ) : false;
 
-  // Extract storage status for display
-  const storageStatus = isVaulted ? (
-      initialItem?.notes?.includes('Storage:') ? initialItem.notes.split('Storage:')[1].trim() :
-      initialItem?.name?.includes('Allocated') ? 'Allocated' :
-      initialItem?.name?.includes('Segregated') ? 'Segregated' : 'Vaulted'
-  ) : '';
+  // Storage status display
+  const storageStatus = isVaulted ? 'In Our Storage — Segregated' : '';
 
   // Populate form if editing
   useEffect(() => {

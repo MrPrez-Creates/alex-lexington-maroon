@@ -329,8 +329,8 @@ export default function App() {
                               acquiredAt: h.purchased_at ? h.purchased_at.split('T')[0] : '',
                               form: h.weight_category || AssetForm.BAR,
                               purity: '.9999',
-                              mint: 'Alex Lexington (Vault)',
-                              notes: `Order #${h.order_number} | Status: ${h.status}`,
+                              mint: 'Purchased via Maroon',
+                              notes: `In Our Storage | Order #${h.order_number} | Segregated`,
                               sku: h.sku || undefined,
                           });
                       });
@@ -344,7 +344,7 @@ export default function App() {
                           const metalCode = (h.metals?.code || 'GOLD');
                           physicalItems.push({
                               id: `vault-${h.holding_id}`,
-                              name: h.products?.name || h.description || `${h.metals?.name || 'Metal'} (Vault)`,
+                              name: h.products?.name || h.description || `${h.metals?.name || 'Metal'}`,
                               metalType: mapMetalCode(metalCode),
                               weightAmount: h.weight_ozt,
                               weightUnit: 'oz',
@@ -354,8 +354,8 @@ export default function App() {
                               acquiredAt: h.deposited_at ? h.deposited_at.split('T')[0] : '',
                               form: AssetForm.BAR,
                               purity: '.9999',
-                              mint: 'Alex Lexington (Vault)',
-                              notes: `Physical Vault | ${h.bag_tag ? `Bag: ${h.bag_tag}` : 'Commingled'}`,
+                              mint: 'In Our Storage',
+                              notes: `In Our Storage | ${h.bag_tag ? `Bag: ${h.bag_tag}` : 'Segregated'}`,
                               sku: h.products?.sku || undefined,
                           });
                       });
@@ -546,7 +546,7 @@ export default function App() {
       units: 'usd' | 'oz', 
       price: number, 
       inventoryItemId?: string,
-      storageType?: 'commingled' | 'segregated',
+      storageType?: 'segregated',
       payoutMethod?: 'balance' | 'wire' | 'ach' | 'check',
       isRecurring: boolean = false,
       frequency?: RecurringFrequency,

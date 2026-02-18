@@ -39,11 +39,12 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
     return `${item.weightAmount} ${item.weightUnit}`;
   };
 
-  // Helper to identify Maroon/Vaulted products
-  const isMaroonProduct = (item: BullionItem) => {
-      return (item.mint?.toLowerCase().includes('alex lexington') && (item.mint?.toLowerCase().includes('digital') || item.mint?.toLowerCase().includes('vault'))) || 
-             item.name.startsWith('Maroon') ||
-             item.notes?.includes('Storage:');
+  // Helper to identify items stored at Alex Lexington (vs customer-held)
+  const isStoredAtAL = (item: BullionItem) => {
+      return (item.mint?.toLowerCase().includes('alex lexington')) ||
+             item.id.startsWith('web-') ||
+             item.id.startsWith('vault-') ||
+             item.notes?.includes('In Our Storage');
   };
 
   // Helper to get stock image URL based on item details
@@ -91,7 +92,7 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
     
     if (filterForm !== 'ALL') {
         if (filterForm === 'Stored') {
-            result = result.filter(item => isMaroonProduct(item));
+            result = result.filter(item => isStoredAtAL(item));
         } else {
             result = result.filter(item => item.form === filterForm);
         }
@@ -137,7 +138,7 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
     return { totalMeltValue, totalCostBasis, metalBreakdown };
   }, [inventory, prices]);
 
-  const isLocked = selectedItem ? isMaroonProduct(selectedItem) : false;
+  const isLocked = selectedItem ? isStoredAtAL(selectedItem) : false;
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 space-y-6">
@@ -211,7 +212,7 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
             const currentValue = calculateItemValue(item, currentPrice);
             const profit = currentValue - item.purchasePrice;
             const isProfit = profit >= 0;
-            const locked = isMaroonProduct(item);
+            const locked = isStoredAtAL(item);
             const stockImage = getStockImage(item);
             const isBar = item.form.toLowerCase().includes('bar');
             
