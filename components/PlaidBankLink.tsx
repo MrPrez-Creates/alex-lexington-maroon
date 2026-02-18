@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlaidLink, PlaidLinkOptions } from 'react-plaid-link';
 
 interface PlaidBankLinkProps {
@@ -18,6 +18,10 @@ interface BankAccountInfo {
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://al-business-api.andre-46c.workers.dev';
 
+// Timeout durations (ms)
+const LOADING_TIMEOUT = 20000; // 20s for link token fetch
+const LINKING_TIMEOUT = 30000; // 30s for token exchange
+
 const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   customerId,
   onSuccess,
@@ -28,11 +32,33 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [linkedAccount, setLinkedAccount] = useState<BankAccountInfo | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any active timeout
+  const clearActiveTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => clearActiveTimeout();
+  }, [clearActiveTimeout]);
 
   // Fetch link token for bank connection
   const fetchLinkToken = useCallback(async () => {
     setStatus('loading');
     setErrorMessage(null);
+    clearActiveTimeout();
+
+    // Timeout: if link token takes too long, show error
+    timeoutRef.current = setTimeout(() => {
+      setErrorMessage('Connection timed out. Please check your internet connection and try again.');
+      setStatus('error');
+      onError?.('Link token request timed out');
+    }, LOADING_TIMEOUT);
 
     try {
       // redirect_uri must be registered in Plaid dashboard for OAuth banks (Chase, Wells Fargo, etc.)
@@ -50,15 +76,17 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
         throw new Error(data.error || 'Failed to create link token');
       }
 
+      clearActiveTimeout();
       setLinkToken(data.link_token);
       setStatus('idle');
     } catch (err: any) {
+      clearActiveTimeout();
       console.error('Error fetching link token:', err);
       setErrorMessage(err.message || 'Failed to initialize bank connection');
       setStatus('error');
       onError?.(err.message);
     }
-  }, [customerId, onError]);
+  }, [customerId, onError, clearActiveTimeout]);
 
   // Fetch link token on mount
   useEffect(() => {
@@ -69,6 +97,14 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   const handlePlaidSuccess = useCallback(async (publicToken: string, metadata: any) => {
     console.log('Plaid bank link success:', metadata);
     setStatus('linking');
+    clearActiveTimeout();
+
+    // Timeout: if token exchange takes too long, show error with cancel option
+    timeoutRef.current = setTimeout(() => {
+      setErrorMessage('Linking is taking longer than expected. Please try again.');
+      setStatus('error');
+      onError?.('Token exchange timed out');
+    }, LINKING_TIMEOUT);
 
     try {
       // Exchange public token for access token on backend
@@ -89,6 +125,8 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
         throw new Error(data.error || 'Failed to link bank account');
       }
 
+      clearActiveTimeout();
+
       const accountInfo: BankAccountInfo = {
         account_id: data.account_id,
         account_name: metadata.accounts[0]?.name || 'Bank Account',
@@ -104,12 +142,13 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
         onSuccess(accountInfo);
       }, 1500);
     } catch (err: any) {
+      clearActiveTimeout();
       console.error('Error exchanging token:', err);
       setErrorMessage(err.message || 'Failed to link bank account');
       setStatus('error');
       onError?.(err.message);
     }
-  }, [customerId, onSuccess, onError]);
+  }, [customerId, onSuccess, onError, clearActiveTimeout]);
 
   // Plaid Link configuration
   const plaidConfig: PlaidLinkOptions = {
@@ -200,8 +239,17 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
 
           {/* Linking spinner */}
           {status === 'linking' && (
-            <div className="mb-6">
+            <div className="mb-6 space-y-3">
               <div className="w-12 h-12 mx-auto border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+              <p className="text-xs text-gray-500">This may take a few seconds...</p>
+            </div>
+          )}
+
+          {/* Loading spinner */}
+          {status === 'loading' && (
+            <div className="mb-6 space-y-3">
+              <div className="w-12 h-12 mx-auto border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+              <p className="text-xs text-gray-500">Initializing secure connection...</p>
             </div>
           )}
 
@@ -232,21 +280,6 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
               </button>
             )}
 
-            {status === 'loading' && (
-              <button
-                disabled
-                className="w-full bg-blue-500/50 text-white py-3 rounded-xl font-bold cursor-wait"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Initializing...
-                </span>
-              </button>
-            )}
-
             {status === 'error' && (
               <button
                 onClick={() => {
@@ -269,9 +302,13 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
               </button>
             )}
 
-            {status !== 'linking' && status !== 'success' && (
+            {/* Cancel button — ALWAYS visible except during success (auto-continues) */}
+            {status !== 'success' && (
               <button
-                onClick={onExit}
+                onClick={() => {
+                  clearActiveTimeout();
+                  onExit();
+                }}
                 className="w-full text-gray-400 py-2 text-sm hover:text-white transition-colors"
               >
                 Cancel

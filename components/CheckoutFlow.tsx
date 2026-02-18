@@ -4,7 +4,7 @@
  * Multi-step checkout for Maroon App — implements Option D tiered payments:
  * Tier 1: Pay with Balance (0% fee, instant)
  * Tier 2: Pay from Bank Account / ACH (0% fee)
- * Tier 3: Pay by Card via Podium (3.5% fee)
+ * Tier 3: Pay by Card via Stripe Elements (3.5% fee)
  *
  * Orders >$8K cannot pay full CC — must use 10% deposit + wire for remaining 90%.
  */
@@ -15,19 +15,24 @@ import {
   checkoutWithBalance,
   createCheckoutOrder,
   createDepositCheckout,
+  createStripeIntent,
+  confirmStripePayment,
   type PaymentMethod,
   type CheckoutMethodsResponse,
   type BalanceCheckoutResponse,
   type DepositCheckoutResponse,
+  type StripeIntentResponse,
+  type StripeConfirmResponse,
   type WireInstructions,
   type CartItem,
 } from '../services/checkoutService';
+import StripeCardForm from './StripeCardForm';
 
 // ============================================
 // TYPES
 // ============================================
 
-type CheckoutStage = 'review' | 'payment' | 'processing' | 'success' | 'wire-instructions';
+type CheckoutStage = 'review' | 'payment' | 'processing' | 'card-payment' | 'success' | 'wire-instructions';
 
 interface CheckoutFlowProps {
   customerId: number | string;
@@ -70,6 +75,10 @@ export default function CheckoutFlow({
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [balanceResult, setBalanceResult] = useState<BalanceCheckoutResponse | null>(null);
   const [depositResult, setDepositResult] = useState<DepositCheckoutResponse | null>(null);
+
+  // Stripe card payment
+  const [stripeIntent, setStripeIntent] = useState<StripeIntentResponse | null>(null);
+  const [stripeConfirmResult, setStripeConfirmResult] = useState<StripeConfirmResponse | null>(null);
 
   // Copy to clipboard
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -186,25 +195,15 @@ export default function CheckoutFlow({
           }
         }
       } else if (selectedMethod === 'card') {
-        // Tier 3: Card via Podium
-        const result = await createDepositCheckout(
+        // Tier 3: Card via Stripe Elements (embedded)
+        const isDeposit = !!method?.is_deposit_only;
+        const intentResult = await createStripeIntent(
           customerId,
           orderResult.order_id,
-          cartTotal,
-          'card'
+          isDeposit
         );
-        setDepositResult(result);
-
-        if (result.payment_link_error) {
-          setError(result.payment_link_error);
-          setStage('payment');
-        } else if (method?.is_deposit_only) {
-          // 10% deposit by card + wire for 90%
-          setStage('wire-instructions');
-        } else {
-          // Full card payment via Podium link
-          setStage('wire-instructions'); // Shows the Podium link
-        }
+        setStripeIntent(intentResult);
+        setStage('card-payment');
       }
     } catch (err: any) {
       setError(err.message || 'Checkout failed. Please try again.');
@@ -449,17 +448,178 @@ export default function CheckoutFlow({
             ? 'Deducting from your balance...'
             : selectedMethod === 'ach'
             ? 'Initiating bank transfer...'
-            : 'Generating payment link...'}
+            : 'Preparing card payment...'}
         </p>
       </div>
     );
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // STAGE 4a: SUCCESS (Balance / Full ACH)
+  // STAGE 3b: STRIPE CARD PAYMENT (embedded card form)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if (stage === 'card-payment' && stripeIntent) {
+    const breakdown = stripeIntent.charge_breakdown;
+    const isDeposit = stripeIntent.is_deposit;
+
+    const handleStripeSuccess = async (paymentIntentId: string) => {
+      setProcessing(true);
+      setError(null);
+      try {
+        const result = await confirmStripePayment(orderId!, paymentIntentId);
+        setStripeConfirmResult(result);
+
+        if (isDeposit) {
+          // Build depositResult-compatible object for wire-instructions stage
+          setDepositResult({
+            success: true,
+            price_lock_id: stripeIntent.price_lock_id || '',
+            order_id: orderId!,
+            payment_method: 'card',
+            deposit_breakdown: result.deposit_breakdown || {
+              order_total: breakdown.order_total,
+              deposit_percent: 10,
+              deposit_base: breakdown.deposit_base || breakdown.charge_base,
+              cc_fee_percent: breakdown.cc_fee_percent,
+              cc_fee_amount: breakdown.cc_fee_amount,
+              deposit_total: breakdown.charge_total,
+              wire_amount_due: breakdown.wire_amount_due || 0,
+              wire_due_by: breakdown.wire_due_by || '',
+            },
+            wire_instructions: result.wire_instructions || {
+              bank_name: '',
+              bank_address: '',
+              routing_number: '',
+              account_number: '',
+              beneficiary_name: '',
+              beneficiary_address: '',
+              memo: '',
+            },
+            al_account_number: result.al_account_number,
+          });
+          setStage('wire-instructions');
+        } else {
+          // Full card payment — go to success
+          setBalanceResult(null);
+          setStage('success');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Payment confirmation failed. Please contact support.');
+      } finally {
+        setProcessing(false);
+      }
+    };
+
+    const handleStripeError = (message: string) => {
+      setError(message);
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => {
+              setStripeIntent(null);
+              setError(null);
+              setStage('payment');
+            }}
+            className="text-gray-400 hover:text-white"
+            disabled={processing}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 className="text-lg font-bold text-white">
+            {isDeposit ? 'Pay Deposit by Card' : 'Pay by Card'}
+          </h2>
+        </div>
+
+        {/* Charge Summary */}
+        <div className="bg-navy-800/50 rounded-xl p-4 border border-white/5">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+            {isDeposit ? 'Deposit Summary' : 'Payment Summary'}
+          </h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Order Total</span>
+              <span className="text-white font-mono">
+                ${breakdown.order_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            {isDeposit && breakdown.deposit_base != null && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">10% Deposit</span>
+                <span className="text-white font-mono">
+                  ${breakdown.deposit_base.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            {breakdown.cc_fee_amount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">{breakdown.cc_fee_percent}% Processing Fee</span>
+                <span className="text-yellow-500/80 font-mono">
+                  ${breakdown.cc_fee_amount.toFixed(2)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between pt-2 border-t border-white/10">
+              <span className="text-white font-bold">
+                {isDeposit ? 'Charge to Card' : 'Total Charge'}
+              </span>
+              <span className="text-gold-500 font-mono font-bold">
+                ${breakdown.charge_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            {isDeposit && breakdown.wire_amount_due != null && (
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Remaining via Wire (48h)</span>
+                <span className="text-gray-400 font-mono">
+                  ${breakdown.wire_amount_due.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stripe Card Form */}
+        <StripeCardForm
+          clientSecret={stripeIntent.client_secret}
+          chargeTotal={breakdown.charge_total}
+          isDeposit={isDeposit}
+          onSuccess={handleStripeSuccess}
+          onError={handleStripeError}
+          disabled={processing}
+        />
+
+        {/* Error */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2">
+            <svg className="w-4 h-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-xs text-red-300">{error}</p>
+          </div>
+        )}
+
+        {/* Processing overlay */}
+        {processing && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <div className="w-5 h-5 border-2 border-gold-500/30 border-t-gold-500 rounded-full animate-spin" />
+            <span className="text-sm text-gray-400">Confirming payment...</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // STAGE 4a: SUCCESS (Balance / Full ACH / Full Card)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if (stage === 'success') {
     const isACH = selectedMethod === 'ach';
+    const isCard = selectedMethod === 'card';
+    const fizConfirmation = stripeConfirmResult?.fiztrade?.confirmation;
     return (
       <div className="text-center py-8">
         {/* Success Icon */}
@@ -483,6 +643,14 @@ export default function CheckoutFlow({
               {' '}(••{depositResult?.linked_bank?.account_mask || '****'}).
               Funds will clear in 2-3 business days.
             </>
+          ) : isCard ? (
+            <>
+              Card payment of{' '}
+              <span className="text-gold-500 font-mono font-bold">
+                ${(stripeIntent?.charge_breakdown.charge_total || cartTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+              {' '}processed successfully.
+            </>
           ) : (
             <>
               Thank you for your purchase of{' '}
@@ -497,6 +665,13 @@ export default function CheckoutFlow({
           <div className="bg-navy-800/50 rounded-xl p-4 mb-6 max-w-xs mx-auto">
             <div className="text-xs text-gray-500 mb-1">Order Number</div>
             <div className="text-lg font-mono text-white font-bold">{orderNumber}</div>
+          </div>
+        )}
+
+        {fizConfirmation && (
+          <div className="bg-navy-800/50 rounded-xl p-4 mb-6 max-w-xs mx-auto">
+            <div className="text-xs text-gray-500 mb-1">Trade Confirmation</div>
+            <div className="text-lg font-mono text-green-400 font-bold">{fizConfirmation}</div>
           </div>
         )}
 
@@ -526,13 +701,13 @@ export default function CheckoutFlow({
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // STAGE 4b: WIRE INSTRUCTIONS / PAYMENT LINK (Deposit flow)
+  // STAGE 4b: WIRE INSTRUCTIONS (Deposit flow — card or ACH deposit paid, wire remaining)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if (stage === 'wire-instructions' && depositResult) {
     const breakdown = depositResult.deposit_breakdown;
     const wire = depositResult.wire_instructions;
     const isCardDeposit = depositResult.payment_method === 'card';
-    const isFullCardPayment = isCardDeposit && !methodsData?.methods.find(m => m.method === 'card')?.is_deposit_only;
+    const fizConfirmation = stripeConfirmResult?.fiztrade?.confirmation;
 
     const WireField = ({ label, value, fieldKey }: { label: string; value: string; fieldKey: string }) => (
       <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
@@ -567,12 +742,10 @@ export default function CheckoutFlow({
             </svg>
           </div>
           <h2 className="text-xl font-bold text-white mb-1">
-            {isFullCardPayment ? 'Complete Payment' : 'Deposit Received — Wire Remaining Balance'}
+            Deposit Received — Wire Remaining Balance
           </h2>
           <p className="text-sm text-gray-400">
-            {isFullCardPayment
-              ? 'Complete your card payment using the link below'
-              : 'Your price is locked. Wire the remaining balance within 48 hours.'}
+            Your price is locked. Wire the remaining balance within 48 hours.
           </p>
         </div>
 
@@ -590,27 +763,25 @@ export default function CheckoutFlow({
 
             <div className="flex justify-between">
               <span className="text-gray-400">
-                {isFullCardPayment ? 'Card Payment' : `${breakdown.deposit_percent}% Deposit`}
+                {breakdown.deposit_percent}% Deposit
                 {breakdown.cc_fee_percent > 0 ? ` (+${breakdown.cc_fee_percent}% fee)` : ''}
               </span>
               <span className="text-green-400 font-mono">
-                ${(isFullCardPayment ? breakdown.order_total : breakdown.deposit_total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                {breakdown.cc_fee_amount > 0 && !isFullCardPayment && (
+                ${breakdown.deposit_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {breakdown.cc_fee_amount > 0 && (
                   <span className="text-yellow-500/80 text-xs ml-1">(incl ${breakdown.cc_fee_amount.toFixed(2)} fee)</span>
                 )}
               </span>
             </div>
 
-            {!isFullCardPayment && (
-              <div className="flex justify-between pt-2 border-t border-white/10">
-                <span className="text-white font-bold">Wire Amount Due</span>
-                <span className="text-gold-500 font-mono font-bold">
-                  ${breakdown.wire_amount_due.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            )}
+            <div className="flex justify-between pt-2 border-t border-white/10">
+              <span className="text-white font-bold">Wire Amount Due</span>
+              <span className="text-gold-500 font-mono font-bold">
+                ${breakdown.wire_amount_due.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
 
-            {!isFullCardPayment && breakdown.wire_due_by && (
+            {breakdown.wire_due_by && (
               <div className="flex justify-between">
                 <span className="text-gray-400">Due By</span>
                 <span className="text-red-400 font-mono text-xs">
@@ -621,25 +792,16 @@ export default function CheckoutFlow({
           </div>
         </div>
 
-        {/* Podium Payment Link (card payments) */}
-        {isCardDeposit && depositResult.payment_link_url && (
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-blue-400 mb-2">
-              {isFullCardPayment ? 'Card Payment Link' : 'Deposit Payment Link'}
-            </h3>
-            <p className="text-xs text-gray-400 mb-3">
-              {isFullCardPayment
-                ? 'Click below to complete your card payment. 3.5% processing fee is included.'
-                : 'Click below to pay your 10% deposit by card. 3.5% processing fee is included.'}
+        {/* Card Deposit Confirmation */}
+        {isCardDeposit && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-green-400 mb-2">Card Deposit Paid</h3>
+            <p className="text-xs text-gray-400">
+              Your {breakdown.deposit_percent}% deposit of ${breakdown.deposit_total.toLocaleString(undefined, { minimumFractionDigits: 2 })} has been charged to your card.
+              {fizConfirmation && (
+                <> Trade confirmation: <span className="text-green-400 font-mono font-bold">{fizConfirmation}</span></>
+              )}
             </p>
-            <a
-              href={depositResult.payment_link_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-lg font-bold text-sm text-center transition-colors"
-            >
-              Pay ${(isFullCardPayment ? breakdown.order_total + (breakdown.order_total * 0.035) : breakdown.deposit_total).toLocaleString(undefined, { minimumFractionDigits: 2 })} by Card
-            </a>
           </div>
         )}
 
@@ -656,7 +818,7 @@ export default function CheckoutFlow({
         )}
 
         {/* Wire Instructions */}
-        {!isFullCardPayment && wire && (
+        {wire && (
           <div className="bg-navy-800/50 rounded-xl p-4 border border-white/5">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
               Wire Instructions
@@ -701,8 +863,7 @@ export default function CheckoutFlow({
         )}
 
         {/* Timing */}
-        {!isFullCardPayment && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -717,7 +878,6 @@ export default function CheckoutFlow({
               </div>
             </div>
           </div>
-        )}
 
         {/* Done Button */}
         <button

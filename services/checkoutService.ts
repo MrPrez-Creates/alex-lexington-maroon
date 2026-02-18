@@ -248,6 +248,92 @@ export async function createDepositCheckout(
 }
 
 // ============================================
+// STRIPE CARD PAYMENT (Tier 3 — embedded card form)
+// ============================================
+
+export interface StripeIntentResponse {
+  success: boolean;
+  client_secret: string;
+  payment_intent_id: string;
+  order_id: string;
+  order_number: string;
+  price_lock_id: string | null;
+  is_deposit: boolean;
+  charge_breakdown: {
+    order_total: number;
+    charge_base: number;
+    cc_fee_percent: number;
+    cc_fee_amount: number;
+    charge_total: number;
+    deposit_base: number | null;
+    wire_amount_due: number | null;
+    wire_due_by: string | null;
+  };
+}
+
+export interface StripeConfirmResponse {
+  success: boolean;
+  order_id: string;
+  payment_intent_id: string;
+  is_deposit: boolean;
+  al_account_number: string;
+  already_processed?: boolean;
+  deposit_breakdown?: {
+    order_total: number;
+    deposit_percent: number;
+    deposit_base: number;
+    cc_fee_percent: number;
+    cc_fee_amount: number;
+    deposit_total: number;
+    wire_amount_due: number;
+    wire_due_by: string;
+  };
+  wire_instructions?: WireInstructions;
+  fiztrade?: {
+    confirmation?: string;
+    status: string;
+    error?: string;
+    busted_items?: string[];
+  };
+}
+
+/**
+ * Create a Stripe PaymentIntent for card checkout.
+ * Returns client_secret for Stripe.js to confirm on the frontend.
+ */
+export async function createStripeIntent(
+  customerId: number | string,
+  orderId: string,
+  isDeposit: boolean
+): Promise<StripeIntentResponse> {
+  return checkoutFetch('/api/checkout/stripe-intent', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer_id: customerId,
+      order_id: orderId,
+      is_deposit: isDeposit,
+    }),
+  });
+}
+
+/**
+ * Confirm a Stripe payment after client-side card confirmation.
+ * Verifies with Stripe, marks order paid, executes FizTrade, returns wire instructions.
+ */
+export async function confirmStripePayment(
+  orderId: string,
+  paymentIntentId: string
+): Promise<StripeConfirmResponse> {
+  return checkoutFetch('/api/checkout/stripe-confirm', {
+    method: 'POST',
+    body: JSON.stringify({
+      order_id: orderId,
+      payment_intent_id: paymentIntentId,
+    }),
+  });
+}
+
+// ============================================
 // LINKED BANK ACCOUNTS (for ACH selection)
 // ============================================
 

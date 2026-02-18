@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { PaymentMethod, UserProfile } from '../types';
 // Payment methods managed locally (mock - real Plaid integration handles bank accounts)
 const addPaymentMethod = async (_method: PaymentMethod) => { /* no-op for now */ };
@@ -11,6 +11,10 @@ interface PaymentMethodsProps {
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://al-business-api.andre-46c.workers.dev';
 
+// Timeout durations (ms)
+const LOADING_TIMEOUT = 20000; // 20s for link token + Plaid script load
+const LINKING_TIMEOUT = 30000; // 30s for token exchange
+
 const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
   const [isLinking, setIsLinking] = useState(false);
   const [linkingStep, setLinkingStep] = useState<'select' | 'plaid-loading' | 'plaid-linking' | 'plaid-success' | 'plaid-error' | 'card-form'>('select');
@@ -18,9 +22,23 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
   const [methodToDelete, setMethodToDelete] = useState<PaymentMethod | null>(null);
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [plaidError, setPlaidError] = useState<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const methods = userProfile?.paymentMethods || [];
   const customerId = userProfile?.customerId;
+
+  // Clear any active timeout
+  const clearActiveTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => clearActiveTimeout();
+  }, [clearActiveTimeout]);
 
   // Fetch Plaid link token when starting bank link
   const fetchLinkToken = useCallback(async () => {
@@ -32,6 +50,13 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
 
     setLinkingStep('plaid-loading');
     setPlaidError(null);
+    clearActiveTimeout();
+
+    // Timeout: if loading takes too long (API + Plaid script), show error
+    timeoutRef.current = setTimeout(() => {
+      setPlaidError('Connection timed out. Please check your internet connection and try again.');
+      setLinkingStep('plaid-error');
+    }, LOADING_TIMEOUT);
 
     try {
       // redirect_uri required for OAuth banks (Chase, Wells Fargo, etc.)
@@ -49,19 +74,28 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
         throw new Error(data.error || 'Failed to create link token');
       }
 
+      clearActiveTimeout();
       setLinkToken(data.link_token);
       // Now open Plaid Link
       openPlaidLink(data.link_token);
     } catch (err: any) {
+      clearActiveTimeout();
       console.error('Error fetching link token:', err);
       setPlaidError(err.message || 'Failed to initialize bank connection');
       setLinkingStep('plaid-error');
     }
-  }, [customerId]);
+  }, [customerId, clearActiveTimeout]);
 
   // Handle Plaid success - exchange token
   const handlePlaidSuccess = useCallback(async (publicToken: string, metadata: any) => {
     setLinkingStep('plaid-linking');
+    clearActiveTimeout();
+
+    // Timeout: if token exchange takes too long, show error
+    timeoutRef.current = setTimeout(() => {
+      setPlaidError('Linking is taking longer than expected. Please try again.');
+      setLinkingStep('plaid-error');
+    }, LINKING_TIMEOUT);
 
     try {
       const response = await fetch(`${API_BASE}/api/plaid/exchange-token`, {
@@ -81,7 +115,9 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
         throw new Error(data.error || 'Failed to link bank account');
       }
 
-      // Save to Firestore
+      clearActiveTimeout();
+
+      // Save to local state
       const newMethod: PaymentMethod = {
         id: `pm-bank-${data.account_id || Date.now()}`,
         type: 'bank',
@@ -99,33 +135,46 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
         setLinkToken(null);
       }, 1500);
     } catch (err: any) {
+      clearActiveTimeout();
       console.error('Error exchanging token:', err);
       setPlaidError(err.message || 'Failed to link bank account');
       setLinkingStep('plaid-error');
     }
-  }, [customerId, methods.length]);
+  }, [customerId, methods.length, clearActiveTimeout]);
 
   // Open Plaid Link widget
   const openPlaidLink = useCallback((token: string) => {
     const initPlaid = () => {
-      const handler = (window as any).Plaid.create({
-        token: token,
-        onSuccess: (public_token: string, metadata: any) => {
-          handlePlaidSuccess(public_token, metadata);
-        },
-        onExit: (err: any) => {
-          if (err) {
-            setPlaidError(err.display_message || 'Connection was interrupted');
-            setLinkingStep('plaid-error');
-          } else {
-            setLinkingStep('select');
-          }
-        },
-        onEvent: (eventName: string, metadata: any) => {
-          console.log('Plaid event:', eventName, metadata);
-        },
-      });
-      handler.open();
+      try {
+        if (!(window as any).Plaid) {
+          throw new Error('Plaid SDK failed to initialize');
+        }
+        const handler = (window as any).Plaid.create({
+          token: token,
+          onSuccess: (public_token: string, metadata: any) => {
+            clearActiveTimeout();
+            handlePlaidSuccess(public_token, metadata);
+          },
+          onExit: (err: any) => {
+            clearActiveTimeout();
+            if (err) {
+              setPlaidError(err.display_message || 'Connection was interrupted');
+              setLinkingStep('plaid-error');
+            } else {
+              setLinkingStep('select');
+            }
+          },
+          onEvent: (eventName: string, metadata: any) => {
+            console.log('Plaid event:', eventName, metadata);
+          },
+        });
+        handler.open();
+      } catch (err: any) {
+        clearActiveTimeout();
+        console.error('Error initializing Plaid Link:', err);
+        setPlaidError('Failed to open bank connection. Please try again.');
+        setLinkingStep('plaid-error');
+      }
     };
 
     if ((window as any).Plaid) {
@@ -134,9 +183,15 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
       const script = document.createElement('script');
       script.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
       script.onload = initPlaid;
+      script.onerror = () => {
+        clearActiveTimeout();
+        console.error('Failed to load Plaid Link script');
+        setPlaidError('Could not load bank connection service. Please check your internet and try again.');
+        setLinkingStep('plaid-error');
+      };
       document.body.appendChild(script);
     }
-  }, [handlePlaidSuccess]);
+  }, [handlePlaidSuccess, clearActiveTimeout]);
 
   const handleLinkBank = () => {
     fetchLinkToken();
@@ -310,6 +365,12 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
                                   <h4 className="font-bold text-navy-900 dark:text-white">Connecting to Plaid...</h4>
                                   <p className="text-sm text-gray-500">Initializing secure connection</p>
                               </div>
+                              <button
+                                  onClick={() => { clearActiveTimeout(); setLinkingStep('select'); setPlaidError(null); }}
+                                  className="mt-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm transition-colors"
+                              >
+                                  Cancel
+                              </button>
                           </div>
                       )}
 
@@ -320,6 +381,12 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ userProfile }) => {
                                   <h4 className="font-bold text-navy-900 dark:text-white">Linking Account...</h4>
                                   <p className="text-sm text-gray-500">Setting up your bank connection</p>
                               </div>
+                              <button
+                                  onClick={() => { clearActiveTimeout(); setLinkingStep('select'); setPlaidError(null); }}
+                                  className="mt-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm transition-colors"
+                              >
+                                  Cancel
+                              </button>
                           </div>
                       )}
 
