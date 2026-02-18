@@ -150,16 +150,31 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
     }
   }, [customerId, onSuccess, onError, clearActiveTimeout]);
 
+  // Track whether onSuccess already fired (prevent onExit from closing modal after success)
+  const successFiredRef = useRef(false);
+
   // Plaid Link configuration
   const plaidConfig: PlaidLinkOptions = {
     token: linkToken || '',
-    onSuccess: handlePlaidSuccess,
+    onSuccess: (publicToken, metadata) => {
+      successFiredRef.current = true;
+      handlePlaidSuccess(publicToken, metadata);
+    },
     onExit: (err, metadata) => {
+      // IMPORTANT: Plaid fires onExit AFTER onSuccess in many flows.
+      // Only close the modal if onSuccess hasn't already fired.
+      if (successFiredRef.current) {
+        console.log('Plaid onExit ignored — onSuccess already handled this flow');
+        return;
+      }
       if (err) {
         setErrorMessage(err.display_message || 'Connection was interrupted');
+        setStatus('error');
         onError?.(err.display_message || 'Connection error');
+      } else {
+        // User cancelled — close the modal
+        onExit();
       }
-      onExit();
     },
     onEvent: (eventName, metadata) => {
       console.log('Plaid event:', eventName, metadata);
@@ -171,12 +186,17 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   // Open Plaid Link
   const openPlaidLink = useCallback(() => {
     if (!linkToken) {
-      setErrorMessage('Link token not ready');
+      setErrorMessage('Link token not ready. Please wait or try again.');
+      setStatus('error');
       return;
     }
-    if (ready) {
-      open();
+    if (!ready) {
+      setErrorMessage('Plaid is still loading. Please wait a moment.');
+      setStatus('error');
+      return;
     }
+    successFiredRef.current = false;
+    open();
   }, [linkToken, ready, open]);
 
   return (
