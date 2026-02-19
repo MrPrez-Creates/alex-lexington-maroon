@@ -190,10 +190,10 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
   const isPositive = portfolioStats.profitLoss >= 0;
 
   return (
-    <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-4 md:p-8 space-y-8 animate-fade-in">
-      
+    <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-4 md:p-8 space-y-4 md:space-y-8 animate-fade-in">
+
       {/* 1. Main Header Stats */}
-      <div className="text-center space-y-2 py-4">
+      <div className="text-center space-y-1 md:space-y-2 py-2 md:py-4">
           <h2 className="text-gray-500 dark:text-gray-400 text-xs font-bold tracking-widest uppercase">Total Portfolio Value</h2>
           <div className="text-5xl md:text-7xl font-serif font-medium text-navy-900 dark:text-white tracking-tight transition-colors duration-200">
              ${portfolioStats.totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
@@ -205,7 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
       </div>
       
       {/* 1.5 Quick Actions */}
-      <div className="flex gap-3 justify-center pb-2">
+      <div className="flex gap-3 justify-center pb-1 md:pb-2">
           <button
             onClick={() => onAction?.('deposit')}
             className="flex-1 max-w-[140px] py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-full transition-colors shadow-lg flex items-center justify-center gap-2"
@@ -232,9 +232,9 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
           
           {/* SECTION 1: CHART */}
           <div className="lg:col-span-8 order-1">
-               <div className="bg-white dark:bg-navy-800 rounded-2xl p-4 md:p-6 shadow-sm dark:shadow-xl border border-gray-100 dark:border-white/5 relative overflow-hidden transition-colors duration-200 flex flex-col">
+               <div className="bg-white dark:bg-navy-800 rounded-2xl p-3 md:p-6 shadow-sm dark:shadow-xl border border-gray-100 dark:border-white/5 relative overflow-hidden transition-colors duration-200 flex flex-col">
                    {/* Chart Header */}
-                   <div className="flex justify-between items-center mb-6">
+                   <div className="flex justify-between items-center mb-3 md:mb-6">
                         <div className="flex gap-2">
                             <button 
                                onClick={() => setSelectedChart('PORTFOLIO')}
@@ -256,7 +256,7 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
                     </div>
 
                     {/* Chart Area */}
-                    <div className="w-full h-96">
+                    <div className="w-full h-48 md:h-96">
                         {isLoadingHistory ? (
                             <div className="h-full w-full flex items-center justify-center text-gray-500 text-xs">Loading data...</div>
                         ) : (
@@ -297,7 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ inventory, transactions = [], pri
                         )}
                     </div>
 
-                    <div className="flex justify-between mt-4 px-2 border-t border-gray-100 dark:border-white/5 pt-4">
+                    <div className="flex justify-between mt-2 md:mt-4 px-2 border-t border-gray-100 dark:border-white/5 pt-2 md:pt-4">
                         {TIME_RANGES.map((range) => (
                             <button
                                 key={range}

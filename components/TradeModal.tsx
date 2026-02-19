@@ -124,8 +124,6 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
       return WEIGHT_CHIPS;
   }, [metal]);
 
-  if (!isOpen) return null;
-
   const spot = prices[metal] || 0;
 
   // Calculate buy price with premium
@@ -221,12 +219,16 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, initialAction,
       handleWeightChange(oz.toString());
   };
 
-  // Generate a reference number for the order (regenerates when step changes)
+  // Generate a unique reference number per modal open
   const orderRef = useMemo(() => {
       const ts = Date.now().toString(36).toUpperCase();
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
       return `AL-${ts}-${rand}`;
-  }, [step]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // All hooks must be above this line — React requires consistent hook ordering
+  if (!isOpen) return null;
 
   const handleConfirm = () => {
       if (action === 'buy') {
