@@ -46,7 +46,7 @@ import Dashboard from './components/Dashboard';
 import LiveTicker from './components/LiveTicker';
 import MarketStatus from './components/MarketStatus';
 import AuthModal from './components/AuthModal';
-import { useMaverickIntro } from './components/MaverickIntro';
+import { useMaverickIntro } from './hooks/useMaverickIntro';
 import { useKYCCheck } from './hooks/useKYCCheck';
 import ErrorBoundary from './components/ErrorBoundary';
 
