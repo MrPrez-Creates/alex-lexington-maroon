@@ -54,7 +54,7 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
     {
       number: '03',
       title: 'Crafting',
-      desc: 'Expert jewelers bring your design to life through Overnight Mountings \u2014 one of America\u2019s premier mounting houses. Made in the USA with meticulous attention to detail.',
+      desc: 'Expert jewelers bring your design to life through our network of master craftsmen. Made in the USA with meticulous attention to detail.',
       accent: 'Handcrafted in the USA',
     },
     {
@@ -168,22 +168,22 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
         </div>
       </section>
 
-      {/* Overnight Mountings Partnership */}
+      {/* Our Network */}
       <section className="py-20 sm:py-24 border-t border-white/5">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500 uppercase">Our Partner</span>
+              <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500 uppercase">Our Network</span>
               <h2 className="font-serif text-3xl sm:text-4xl font-light text-white mt-3 mb-6">
-                Powered by<br />
-                <span className="italic" style={{ color: '#D4B77A' }}>Overnight Mountings</span>
+                Deep Ties to the<br />
+                <span className="italic" style={{ color: '#D4B77A' }}>Diamond District &amp; Beyond</span>
               </h2>
               <div className="space-y-4 text-gray-300 leading-relaxed">
                 <p>
-                  Alex Lexington's INDULGE collection is powered by Overnight Mountings \u2014 one of America's premier jewelry mounting houses. Every custom piece is crafted in the USA by skilled artisans with decades of experience.
+                  Four generations in the jewelry business means relationships that run deep — from New York's Diamond District to master craftsmen, stone cutters, and mounting houses across the country.
                 </p>
                 <p>
-                  This partnership means you get the personal attention and expertise of a 4th-generation jeweler, combined with the manufacturing precision and speed of one of the country's most respected production facilities.
+                  These connections give you access to the same quality, selection, and pricing that the industry's top dealers rely on — with the personal attention of a family jeweler who knows your name.
                 </p>
               </div>
             </div>
