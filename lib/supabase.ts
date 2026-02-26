@@ -14,7 +14,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
+    flowType: 'pkce',          // Use PKCE — auth code comes via ?code= query param, not #access_token hash.
+    persistSession: true,       // This avoids conflicts with the hash-based view routing in App.tsx.
     autoRefreshToken: true,
     detectSessionInUrl: true
   }

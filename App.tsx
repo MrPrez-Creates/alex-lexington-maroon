@@ -140,7 +140,14 @@ export default function App() {
     if (PUBLIC_VIEWS.includes(view) && view !== 'landing') {
       window.location.hash = view;
     } else if (view === 'landing') {
-      if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+      // Don't strip hash if it contains Supabase auth tokens (implicit OAuth callback).
+      // Supabase's detectSessionInUrl reads #access_token from the hash asynchronously.
+      // Stripping it here before Supabase reads it kills the Google sign-in session.
+      const hash = window.location.hash;
+      const isAuthCallback = hash.includes('access_token=') || hash.includes('error=') || hash.includes('refresh_token=');
+      if (hash && !isAuthCallback) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     }
   }, [view]);
 
