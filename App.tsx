@@ -688,11 +688,11 @@ export default function App() {
     }
   };
 
-  const handleManualAdd = async (item: BullionItem) => {
+  const handleManualAdd = async (item: BullionItem): Promise<boolean> => {
     if (!customerId) {
       console.error('[Maroon] No customerId — cannot save vault holding');
-      setView('vault');
-      return;
+      alert('Unable to save — your account is still loading. Please wait a moment and try again.');
+      return false;
     }
 
     try {
@@ -706,6 +706,8 @@ export default function App() {
         ? item.purchasePrice / (weightOzt * item.quantity)
         : 0;
 
+      console.log('[Maroon] Saving vault holding for customer', customerId, item.name);
+
       await createClientVaultHolding(customerId, {
         metal_id: metalId,
         description: item.name,
@@ -716,19 +718,23 @@ export default function App() {
         notes: [item.purity && `Purity: ${item.purity}`, item.mint && `Mint: ${item.mint}`, item.notes].filter(Boolean).join(' | '),
       });
 
+      console.log('[Maroon] Vault holding saved, refreshing data...');
+
       // Refresh vault data from API so new item appears
       await refreshVaultData();
       setView('vault');
+      return true;
     } catch (error) {
       console.error('[Maroon] Failed to save vault holding:', error);
       alert('Failed to save item. Please try again.');
+      return false;
     }
   };
 
-  const handleManualUpdate = async (item: BullionItem) => {
+  const handleManualUpdate = async (item: BullionItem): Promise<boolean> => {
     if (!customerId) {
-      setView('vault');
-      return;
+      alert('Unable to save — your account is still loading. Please wait a moment and try again.');
+      return false;
     }
 
     // Extract holding ID from item.id (format: "vault-123" or "web-456")
@@ -755,13 +761,15 @@ export default function App() {
 
         await refreshVaultData();
         setView('vault');
+        return true;
       } catch (error) {
         console.error('[Maroon] Failed to update vault holding:', error);
         alert('Failed to update item. Please try again.');
+        return false;
       }
     } else {
       // New item being consolidated or non-vault item — create as new
-      await handleManualAdd(item);
+      return await handleManualAdd(item);
     }
   };
 

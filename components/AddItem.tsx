@@ -7,8 +7,8 @@ import CameraScanner from './CameraScanner';
 import { getStandardWeight } from '../utils/calculations';
 
 interface AddItemProps {
-  onAdd: (item: BullionItem) => void;
-  onUpdate: (item: BullionItem) => void;
+  onAdd: (item: BullionItem) => void | Promise<boolean>;
+  onUpdate: (item: BullionItem) => void | Promise<boolean>;
   onCancel: () => void;
   inventory: BullionItem[];
   initialItem?: BullionItem | null;
@@ -18,6 +18,7 @@ interface AddItemProps {
 const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory, initialItem, autoStartCamera = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(autoStartCamera);
   const [error, setError] = useState<string | null>(null);
   const [showConsolidateModal, setShowConsolidateModal] = useState<boolean>(false);
@@ -138,39 +139,44 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
     }
   };
 
-  const finalizeAdd = (isConsolidation: boolean) => {
-    if (isConsolidation && duplicateItem) {
-      const updatedItem: BullionItem = {
-        ...duplicateItem,
-        quantity: duplicateItem.quantity + (formData.quantity || 0),
-        purchasePrice: duplicateItem.purchasePrice + (formData.purchasePrice || 0),
-        notes: duplicateItem.notes + (formData.notes ? `\n[${formData.acquiredAt}]: ${formData.notes}` : '')
-      };
-      onUpdate(updatedItem);
-    } else {
-      
-      const itemData: BullionItem = {
-        id: initialItem ? initialItem.id : Date.now().toString(),
-        metalType: formData.metalType as string,
-        form: formData.form as string,
-        weightAmount: formData.weightAmount || 0, 
-        weightUnit: formData.weightUnit || 'oz', 
-        quantity: formData.quantity || 1,
-        purchasePrice: formData.purchasePrice || 0,
-        acquiredAt: formData.acquiredAt || new Date().toISOString().split('T')[0],
-        name: formData.name || '',
-        mint: formData.mint,
-        purity: formData.purity,
-        mintage: formData.mintage,
-        notes: formData.notes,
-        sku: formData.sku
-      };
-
-      if (initialItem) {
-        onUpdate(itemData);
+  const finalizeAdd = async (isConsolidation: boolean) => {
+    setIsSaving(true);
+    try {
+      if (isConsolidation && duplicateItem) {
+        const updatedItem: BullionItem = {
+          ...duplicateItem,
+          quantity: duplicateItem.quantity + (formData.quantity || 0),
+          purchasePrice: duplicateItem.purchasePrice + (formData.purchasePrice || 0),
+          notes: duplicateItem.notes + (formData.notes ? `\n[${formData.acquiredAt}]: ${formData.notes}` : '')
+        };
+        await onUpdate(updatedItem);
       } else {
-        onAdd(itemData);
+
+        const itemData: BullionItem = {
+          id: initialItem ? initialItem.id : Date.now().toString(),
+          metalType: formData.metalType as string,
+          form: formData.form as string,
+          weightAmount: formData.weightAmount || 0,
+          weightUnit: formData.weightUnit || 'oz',
+          quantity: formData.quantity || 1,
+          purchasePrice: formData.purchasePrice || 0,
+          acquiredAt: formData.acquiredAt || new Date().toISOString().split('T')[0],
+          name: formData.name || '',
+          mint: formData.mint,
+          purity: formData.purity,
+          mintage: formData.mintage,
+          notes: formData.notes,
+          sku: formData.sku
+        };
+
+        if (initialItem) {
+          await onUpdate(itemData);
+        } else {
+          await onAdd(itemData);
+        }
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -544,11 +550,16 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
           />
         </div>
 
-        <button 
-          type="submit" 
-          className="w-full bg-gold-500 hover:bg-gold-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-gold-500/30 transition-all active:scale-[0.98] mt-4"
+        <button
+          type="submit"
+          disabled={isSaving}
+          className={`w-full font-bold py-4 rounded-xl shadow-lg transition-all mt-4 ${
+            isSaving
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              : 'bg-gold-500 hover:bg-gold-600 text-white shadow-gold-500/30 active:scale-[0.98]'
+          }`}
         >
-          {initialItem ? 'Save Changes' : 'Verify & Add to Vault'}
+          {isSaving ? 'Saving...' : (initialItem ? 'Save Changes' : 'Verify & Add to Vault')}
         </button>
       </form>
 
@@ -562,20 +573,27 @@ const AddItem: React.FC<AddItemProps> = ({ onAdd, onUpdate, onCancel, inventory,
               Would you like to combine this purchase with your existing holdings (update quantity & cost) or add it as a separate line item?
             </p>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => finalizeAdd(true)}
-                className="w-full bg-gold-500 hover:bg-gold-600 text-white font-bold py-3 rounded-lg transition-colors"
+                disabled={isSaving}
+                className={`w-full font-bold py-3 rounded-lg transition-colors ${
+                  isSaving ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-gold-500 hover:bg-gold-600 text-white'
+                }`}
               >
-                Consolidate (Qty: {duplicateItem.quantity} + {formData.quantity})
+                {isSaving ? 'Saving...' : `Consolidate (Qty: ${duplicateItem.quantity} + ${formData.quantity})`}
               </button>
-              <button 
+              <button
                 onClick={() => finalizeAdd(false)}
-                className="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-3 rounded-lg transition-colors"
+                disabled={isSaving}
+                className={`w-full font-bold py-3 rounded-lg transition-colors ${
+                  isSaving ? 'bg-gray-300 text-gray-400 cursor-not-allowed' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white'
+                }`}
               >
-                Add as New Item
+                {isSaving ? 'Saving...' : 'Add as New Item'}
               </button>
-              <button 
+              <button
                 onClick={() => setShowConsolidateModal(false)}
+                disabled={isSaving}
                 className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 mt-2"
               >
                 Cancel
