@@ -119,6 +119,15 @@ export default function App() {
     if (hash && PUBLIC_VIEWS.includes(hash)) return hash;
     return 'landing';
   });
+
+  // Plaid OAuth return detection — OAuth banks (Chase, Wells Fargo, Capital One) redirect
+  // back with ?oauth_state_id= after auth. Capture the full URL so PlaidBankLink can resume.
+  const [plaidOAuthReturn, setPlaidOAuthReturn] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthStateId = params.get('oauth_state_id');
+    return oauthStateId ? window.location.href : null;
+  });
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('maroon-dark-mode');
     return saved !== null ? saved === 'true' : true; // Default to dark
@@ -304,6 +313,14 @@ export default function App() {
       }
     });
   }, [customerId]);
+
+  // 1d. Plaid OAuth return — auto-navigate to wallet when returning from OAuth bank redirect
+  useEffect(() => {
+    if (plaidOAuthReturn && user && customerId) {
+      console.log('[Maroon] Plaid OAuth return detected, navigating to wallet');
+      setView('wallet');
+    }
+  }, [plaidOAuthReturn, user, customerId]);
 
   // 2. Build user profile from API customer data
   useEffect(() => {
@@ -1040,13 +1057,14 @@ export default function App() {
          {view === 'wallet' && (
              <FundingWallet
                 customerId={customerId ? parseInt(customerId) : 0}
-                onFundingComplete={() => setView('dashboard')}
+                onFundingComplete={() => { setPlaidOAuthReturn(null); setView('dashboard'); }}
                 onNavigateToFundAccount={() => setView('fund-account')}
                 onWithdraw={() => {
                     setTransferType('withdraw');
                     setShowTransferModal(true);
                 }}
                 plaidAvailable={plaidAvailable}
+                plaidOAuthRedirectUri={plaidOAuthReturn || undefined}
              />
          )}
 

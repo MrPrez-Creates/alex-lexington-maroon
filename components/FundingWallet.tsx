@@ -7,6 +7,7 @@ interface FundingWalletProps {
   onNavigateToFundAccount?: () => void;
   onWithdraw?: () => void;
   plaidAvailable?: boolean;
+  plaidOAuthRedirectUri?: string;
 }
 
 interface BankAccount {
@@ -48,6 +49,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
   onNavigateToFundAccount,
   onWithdraw,
   plaidAvailable = true,
+  plaidOAuthRedirectUri,
 }) => {
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -96,6 +98,14 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Auto-open PlaidBankLink on OAuth return (Chase, Wells Fargo, Capital One redirect back)
+  useEffect(() => {
+    if (plaidOAuthRedirectUri) {
+      console.log('[FundingWallet] Plaid OAuth return — auto-opening bank link');
+      setShowAddBank(true);
+    }
+  }, [plaidOAuthRedirectUri]);
 
   // Handle deposit
   const handleDeposit = async () => {
@@ -505,6 +515,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
           }}
           onExit={() => setShowAddBank(false)}
           onError={(error) => setError(error)}
+          receivedRedirectUri={plaidOAuthRedirectUri}
         />
       )}
 

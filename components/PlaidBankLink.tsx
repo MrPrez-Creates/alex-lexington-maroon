@@ -6,6 +6,7 @@ interface PlaidBankLinkProps {
   onSuccess: (accountInfo: BankAccountInfo) => void;
   onExit: () => void;
   onError?: (error: string) => void;
+  receivedRedirectUri?: string;
 }
 
 interface BankAccountInfo {
@@ -27,6 +28,7 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   onSuccess,
   onExit,
   onError,
+  receivedRedirectUri,
 }) => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'linking' | 'success' | 'error'>('idle');
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -156,6 +158,7 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   // Plaid Link configuration
   const plaidConfig: PlaidLinkOptions = {
     token: linkToken || '',
+    receivedRedirectUri: receivedRedirectUri || undefined,
     onSuccess: (publicToken, metadata) => {
       successFiredRef.current = true;
       handlePlaidSuccess(publicToken, metadata);
@@ -182,6 +185,15 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   };
 
   const { open, ready } = usePlaidLink(plaidConfig);
+
+  // Auto-open Plaid Link on OAuth return — once link token is ready, resume the flow
+  useEffect(() => {
+    if (receivedRedirectUri && linkToken && ready) {
+      console.log('[PlaidBankLink] OAuth return — auto-opening Plaid Link');
+      successFiredRef.current = false;
+      open();
+    }
+  }, [receivedRedirectUri, linkToken, ready, open]);
 
   // Open Plaid Link
   const openPlaidLink = useCallback(() => {
