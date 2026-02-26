@@ -22,7 +22,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(189,154,95,0.3) 0%, transparent 70%)' }} />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="inline-block mb-6">
-            <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-5 sm:h-7 mx-auto opacity-70 hover:opacity-100 transition-opacity" />
+            <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 block mx-auto opacity-70 hover:opacity-100 transition-opacity" />
           </a>
           <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">SECURE &middot; Vault Storage</span>
           <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-light text-white leading-tight mb-6">

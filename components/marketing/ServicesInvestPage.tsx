@@ -150,7 +150,7 @@ const ServicesInvestPage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="inline-block mb-6">
-            <img src="/logos/alex-lexington-precious-metals-white.png" alt="Alex Lexington Precious Metals" className="h-6 sm:h-8 mx-auto opacity-70 hover:opacity-100 transition-opacity" />
+            <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 block mx-auto opacity-70 hover:opacity-100 transition-opacity" />
           </a>
           <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">
             INVEST
