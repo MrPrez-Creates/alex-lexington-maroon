@@ -1357,7 +1357,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
                 <p style={{ fontSize: '13px', color: '#A9A89F', lineHeight: 1.6 }}>
                   Your wealth, refined. Buy, vault, and trade precious metals with a 4th-generation Atlanta dealer.
                 </p>
-                <p style={{ fontSize: '11px', color: '#6B6B6B', marginTop: '8px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Est. 1976</p>
+                <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '12px' }}>
+                  <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" style={{ height: '14px', opacity: 0.5 }} className="hover:opacity-80 transition-opacity" />
+                </a>
               </div>
 
               {/* Services */}
