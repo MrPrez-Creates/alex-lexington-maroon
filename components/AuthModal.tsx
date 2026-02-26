@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { loginWithEmail, registerWithEmail, loginWithGoogle, requestPhoneCode, verifyPhoneCode, sendPasswordReset } from '../services/authService';
+import { loginWithEmail, registerWithEmail, loginWithGoogle, sendPasswordReset } from '../services/authService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -8,12 +8,9 @@ interface AuthModalProps {
   onRegistrationFlow: (isRegistering: boolean) => void;
 }
 
-type AuthMethod = 'email' | 'phone';
-
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFlow }) => {
-  const [method, setMethod] = useState<AuthMethod>('email');
   const [isRegistering, setIsRegistering] = useState(false);
-  
+
   // Verification State
   const [showVerification, setShowVerification] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState('');
@@ -29,11 +26,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Phone Form State
-  const [phone, setPhone] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,36 +101,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
       } finally {
           setIsLoading(false);
       }
-  };
-
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-    
-    try {
-        await requestPhoneCode(phone);
-        setCodeSent(true);
-    } catch (err) {
-        setError("Failed to send code. Try again.");
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-
-    try {
-        await verifyPhoneCode(phone, verificationCode);
-        onClose();
-    } catch (err: any) {
-        setError(err.message || "Invalid code.");
-    } finally {
-        setIsLoading(false);
-    }
   };
 
   const handleGoogleLogin = async () => {
@@ -282,10 +244,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
                         <span className="font-serif font-bold text-navy-900 text-xl transform -rotate-45">M</span>
                     </div>
                     <h2 className="text-2xl font-serif font-bold text-navy-900 dark:text-white">
-                        {method === 'phone' ? 'Phone Access' : (isRegistering ? 'Create Account' : 'Welcome Back')}
+                        {isRegistering ? 'Create Account' : 'Welcome Back'}
                     </h2>
                     <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-                        {method === 'phone' ? 'Secure verification via SMS.' : (isRegistering ? 'Start building your legacy.' : 'Access your secure vault.')}
+                        {isRegistering ? 'Start building your legacy.' : 'Access your secure vault.'}
                     </p>
                 </div>
 
@@ -319,29 +281,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
                         <div className="w-full border-t border-gray-200 dark:border-navy-700"></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white dark:bg-navy-800 text-gray-500">Or continue with</span>
+                        <span className="px-2 bg-white dark:bg-navy-800 text-gray-500">Or continue with email</span>
                     </div>
                 </div>
 
-                {/* Method Toggles */}
-                <div className="flex bg-gray-100 dark:bg-navy-900 p-1 rounded-xl mb-6">
-                    <button 
-                        onClick={() => setMethod('email')}
-                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${method === 'email' ? 'bg-white dark:bg-navy-800 shadow-sm text-navy-900 dark:text-white' : 'text-gray-400 hover:text-gray-500'}`}
-                    >
-                        Email
-                    </button>
-                    <button 
-                        onClick={() => setMethod('phone')}
-                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${method === 'phone' ? 'bg-white dark:bg-navy-800 shadow-sm text-navy-900 dark:text-white' : 'text-gray-400 hover:text-gray-500'}`}
-                    >
-                        Phone
-                    </button>
-                </div>
-
                 {/* EMAIL FORM */}
-                {method === 'email' && (
-                    <form onSubmit={handleEmailSubmit} className="space-y-4">
+                <form onSubmit={handleEmailSubmit} className="space-y-4">
                         {isRegistering && (
                             <div className="space-y-4">
                                 {/* Profile Photo Upload */}
@@ -434,62 +379,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
                                 {isRegistering ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
                             </button>
                         </div>
-                    </form>
-                )}
-
-                {/* PHONE FORM */}
-                {method === 'phone' && (
-                    <form onSubmit={codeSent ? handleVerifyCode : handleSendCode} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Phone Number</label>
-                            <input 
-                                type="tel" 
-                                required 
-                                disabled={codeSent}
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                className={`w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 focus:border-gold-500 focus:outline-none text-navy-900 dark:text-white ${codeSent ? 'opacity-50' : ''}`}
-                                placeholder="+1 (555) 000-0000"
-                            />
-                        </div>
-
-                        {codeSent && (
-                            <div className="animate-fade-in-up">
-                                <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Verification Code</label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    value={verificationCode}
-                                    onChange={(e) => setVerificationCode(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 focus:border-gold-500 focus:outline-none text-navy-900 dark:text-white text-center tracking-[0.5em] font-mono text-lg"
-                                    placeholder="------"
-                                    maxLength={6}
-                                />
-                                <p className="text-center text-xs text-gray-500 mt-2">Enter code: <span className="font-mono font-bold text-white">123456</span></p>
-                            </div>
-                        )}
-
-                        {error && <p className="text-red-500 text-sm text-center animate-pulse">{error}</p>}
-
-                        <button 
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full py-4 bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold rounded-xl transition-colors shadow-lg shadow-gold-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? 'Processing...' : (codeSent ? 'Verify & Access' : 'Send Code')}
-                        </button>
-
-                        {codeSent && (
-                            <button 
-                                type="button"
-                                onClick={() => { setCodeSent(false); setVerificationCode(''); setError(null); }}
-                                className="w-full text-xs text-gray-500 hover:text-white mt-2"
-                            >
-                                Change Phone Number
-                            </button>
-                        )}
-                    </form>
-                )}
+                </form>
             </div>
         )}
       </div>

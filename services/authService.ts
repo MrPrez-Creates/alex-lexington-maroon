@@ -1,6 +1,6 @@
 /**
  * Auth Service for Maroon Customer App
- * Supabase Auth — handles login, registration, OAuth, and OTP
+ * Supabase Auth — handles login, registration, and OAuth
  */
 
 import { supabase } from '../lib/supabase';
@@ -74,24 +74,6 @@ export const sendPasswordReset = async (email: string) => {
     redirectTo: `${window.location.origin}/reset-password`
   });
   if (error) throw error;
-};
-
-export const requestPhoneCode = async (phoneNumber: string) => {
-  const { error } = await supabase.auth.signInWithOtp({
-    phone: phoneNumber
-  });
-  if (error) throw error;
-  return 'code_sent';
-};
-
-export const verifyPhoneCode = async (phoneNumber: string, code: string) => {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone: phoneNumber,
-    token: code,
-    type: 'sms'
-  });
-  if (error) throw error;
-  return data;
 };
 
 export const deleteUserAccount = async () => {

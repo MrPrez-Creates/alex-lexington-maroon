@@ -1,6 +1,7 @@
 /**
  * Product Service for Maroon Customer App
- * Fetches product catalog from Supabase backend with fallback to static data
+ * Fetches bullion product catalog from /api/bullion-products (146 products)
+ * with fallback to static data when API is unavailable
  */
 
 import { MetalType, AssetForm, WeightUnit, ProductTemplate } from '../types';
@@ -154,42 +155,40 @@ let cacheTimestamp = 0;
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
 
 /**
- * Map API product to ProductTemplate format
+ * Map bullion_products API response to ProductTemplate format
+ * Source: GET /api/bullion-products (146 products from bullion_products table)
  */
-const mapApiProductToTemplate = (apiProduct: any): ProductTemplate => {
-  // Determine metal type from metal_id or metals.code
+const mapBullionProductToTemplate = (product: any): ProductTemplate => {
+  // Map metal_type string to MetalType enum
   let metalType = MetalType.GOLD;
-  if (apiProduct.metals?.code) {
-    const code = apiProduct.metals.code.toLowerCase();
-    if (code === 'xag' || code === 'silver') metalType = MetalType.SILVER;
-    if (code === 'xpt' || code === 'platinum') metalType = MetalType.PLATINUM;
-    if (code === 'xpd' || code === 'palladium') metalType = MetalType.PALLADIUM;
-  }
+  const metal = (product.metal_type || '').toLowerCase();
+  if (metal === 'silver') metalType = MetalType.SILVER;
+  else if (metal === 'platinum') metalType = MetalType.PLATINUM;
+  else if (metal === 'palladium') metalType = MetalType.PALLADIUM;
 
-  // Determine form from category
-  let form = AssetForm.COIN;
-  const category = (apiProduct.category || '').toLowerCase();
-  if (category.includes('bar')) form = AssetForm.BAR;
-  if (category.includes('round')) form = AssetForm.ROUND;
-  if (category.includes('jewelry') || category.includes('scrap')) form = AssetForm.JEWELRY;
+  // Map product_type to AssetForm: 'coin' → Coin, 'bullion' → Bar
+  const form = product.product_type === 'coin' ? AssetForm.COIN : AssetForm.BAR;
 
-  // Determine weight unit
-  let defaultUnit = WeightUnit.TROY_OZ;
-  let defaultWeight = apiProduct.weight_ozt || 1;
-
-  if (apiProduct.weight_grams && (!apiProduct.weight_ozt || apiProduct.weight_grams < 31.1)) {
-    defaultUnit = WeightUnit.GRAMS;
-    defaultWeight = apiProduct.weight_grams;
+  // Format purity decimal (0.9167) to display string (".9167")
+  let purityStr = '.9999';
+  if (product.purity != null) {
+    const raw = product.purity;
+    if (raw === 1 || raw === 1.0) {
+      purityStr = '1.000';
+    } else {
+      // Remove leading zero: 0.9167 → ".9167"
+      purityStr = '.' + String(raw).replace(/^0\./, '');
+    }
   }
 
   return {
-    name: apiProduct.name,
+    name: product.name,
     type: metalType,
     form: form,
-    defaultWeight: defaultWeight,
-    defaultUnit: defaultUnit,
-    purity: apiProduct.purity_display || (apiProduct.purity ? `.${Math.round(apiProduct.purity * 10000)}` : '.9999'),
-    mint: apiProduct.description || 'Various',
+    defaultWeight: product.weight_ozt || 1,
+    defaultUnit: WeightUnit.TROY_OZ,
+    purity: purityStr,
+    mint: 'Various',
   };
 };
 
@@ -204,7 +203,7 @@ export const fetchProducts = async (): Promise<ProductTemplate[]> => {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/products?limit=100&is_active=true`);
+    const response = await fetch(`${API_BASE_URL}/api/bullion-products`);
 
     if (!response.ok) {
       throw new Error(`API responded with ${response.status}`);
@@ -213,7 +212,7 @@ export const fetchProducts = async (): Promise<ProductTemplate[]> => {
     const result = await response.json();
 
     if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-      cachedProducts = result.data.map(mapApiProductToTemplate);
+      cachedProducts = result.data.map(mapBullionProductToTemplate);
       cacheTimestamp = now;
       return cachedProducts;
     }
