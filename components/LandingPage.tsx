@@ -1,23 +1,27 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import LiveTicker from './LiveTicker';
-import { SpotPrices, MetalType, BullionItem } from '../types';
+import { SpotPrices, MetalType, BullionItem, ViewState } from '../types';
 import { MOCK_SPOT_PRICES } from '../constants';
 import { fetchMarketNews, fetchMediaLinks, NewsItem, MediaLinks } from '../services/newsService';
+import SEOHead from './marketing/SEOHead';
 
 interface LandingPageProps {
   onEnterApp: () => void;
   onActivateAI?: () => void;
+  onNavigate?: (view: ViewState) => void;
   user?: any;
   prices?: SpotPrices;
   inventory?: BullionItem[];
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, user, prices, inventory }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onNavigate, user, prices, inventory }) => {
   const [scrollY, setScrollY] = useState(0);
   const [mediaItems, setMediaItems] = useState<NewsItem[]>([]);
   const [mediaLinks, setMediaLinks] = useState<MediaLinks | null>(null);
   const [mediaLoading, setMediaLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -134,6 +138,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
     return `${Math.floor(diffDays / 30)} months ago`;
   };
 
+  const navigate = (view: ViewState) => {
+    if (onNavigate) { onNavigate(view); window.scrollTo(0, 0); }
+  };
+
   return (
     <div
       className="min-h-screen text-white overflow-x-hidden selection:text-navy-900"
@@ -144,6 +152,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
         WebkitFontSmoothing: 'antialiased',
       }}
     >
+      <SEOHead
+        title="Your Wealth, Refined"
+        description="Maroon by Alex Lexington — Buy, vault, and trade precious metals online. 4th-generation Atlanta dealer since 1976. Segregated vault storage, live pricing, AI concierge."
+      />
+
       {/* ═══ LIVE TICKER ═══ */}
       <div
         className="sticky top-0 z-[100] border-b"
@@ -154,89 +167,189 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
 
       {/* ═══ NAVIGATION ═══ */}
       <nav
-        className="flex justify-between items-center relative z-10"
+        className="relative z-10"
         style={{ padding: '20px clamp(24px, 4vw, 48px)' }}
       >
-        <div className="flex items-center gap-3.5 cursor-pointer" onClick={onEnterApp}>
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #C9A96E, #BD9A5F, #A8864E)',
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '20px',
-              fontWeight: 600,
-              color: '#0A2240',
-            }}
-          >
-            M
-          </div>
-          <div className="flex flex-col">
-            <span
-              className="block text-white"
+        <div className="flex justify-between items-center">
+          {/* Logo */}
+          <div className="flex items-center gap-3.5 cursor-pointer" onClick={onEnterApp}>
+            <div
+              className="flex items-center justify-center"
               style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #C9A96E, #BD9A5F, #A8864E)',
                 fontFamily: "'Cormorant Garamond', serif",
                 fontSize: '20px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
+                fontWeight: 600,
+                color: '#0A2240',
               }}
             >
-              Maroon
-            </span>
-            <span
-              className="block"
+              M
+            </div>
+            <div className="flex flex-col">
+              <span
+                className="block text-white"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: '20px',
+                  fontWeight: 500,
+                  letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Maroon
+              </span>
+              <span
+                className="block"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 500,
+                  letterSpacing: '0.2em',
+                  color: '#BD9A5F',
+                  textTransform: 'uppercase',
+                  marginTop: '-2px',
+                }}
+              >
+                By Alex Lexington
+              </span>
+            </div>
+          </div>
+
+          {/* Desktop Nav */}
+          {onNavigate && (
+            <div className="hidden lg:flex items-center gap-1">
+              <button onClick={() => navigate('about')} className="px-3 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500 }}>About</button>
+              <button onClick={() => navigate('how-it-works')} className="px-3 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500 }}>How It Works</button>
+
+              {/* Services Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)}
+                  onBlur={() => setTimeout(() => setServicesDropdownOpen(false), 200)}
+                  className="px-3 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors flex items-center gap-1"
+                  style={{ fontWeight: 500 }}
+                >
+                  Services
+                  <svg className={`w-3 h-3 transition-transform ${servicesDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {servicesDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-60 rounded-xl shadow-2xl overflow-hidden" style={{ background: '#0D2A4D', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button onClick={() => { navigate('services-invest'); setServicesDropdownOpen(false); }} className="w-full px-4 py-3 text-left hover:bg-white/5 transition-colors flex items-center justify-between">
+                      <span className="text-sm text-gray-200">Precious Metals Trading</span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(189,154,95,0.6)' }}>INVEST</span>
+                    </button>
+                    <button onClick={() => { navigate('services-indulge'); setServicesDropdownOpen(false); }} className="w-full px-4 py-3 text-left hover:bg-white/5 transition-colors flex items-center justify-between">
+                      <span className="text-sm text-gray-200">Fine Jewelry & Design</span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(189,154,95,0.6)' }}>INDULGE</span>
+                    </button>
+                    <button onClick={() => { navigate('services-secure'); setServicesDropdownOpen(false); }} className="w-full px-4 py-3 text-left hover:bg-white/5 transition-colors flex items-center justify-between">
+                      <span className="text-sm text-gray-200">Vault Storage</span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(189,154,95,0.6)' }}>SECURE</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button onClick={() => navigate('pricing')} className="px-3 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500 }}>Pricing</button>
+              <button onClick={() => navigate('contact')} className="px-3 py-2 text-sm text-gray-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500 }}>Contact</button>
+            </div>
+          )}
+
+          {/* CTAs + Mobile Hamburger */}
+          <div className="flex gap-3 items-center">
+            <button
+              onClick={onEnterApp}
+              className="hidden sm:block transition-all duration-300"
               style={{
-                fontSize: '9px',
+                background: 'transparent',
+                border: '1px solid rgba(189,154,95,0.25)',
+                color: '#D4B77A',
+                padding: '10px 24px',
+                borderRadius: '8px',
+                fontSize: '14px',
                 fontWeight: 500,
-                letterSpacing: '0.2em',
-                color: '#BD9A5F',
-                textTransform: 'uppercase',
-                marginTop: '-2px',
+                letterSpacing: '0.02em',
+                cursor: 'pointer',
               }}
             >
-              By Alex Lexington
-            </span>
+              Sign In
+            </button>
+            <button
+              onClick={onEnterApp}
+              className="hidden sm:block transition-all duration-300 hover:-translate-y-px"
+              style={{
+                background: 'linear-gradient(135deg, #BD9A5F, #A8864E)',
+                border: 'none',
+                color: '#0A2240',
+                padding: '10px 28px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '0.02em',
+                cursor: 'pointer',
+              }}
+            >
+              {user ? 'Enter Dashboard' : 'Get Started'}
+            </button>
+            {/* Mobile hamburger */}
+            {onNavigate && (
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 rounded-lg hover:bg-white/5 transition-colors"
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                {mobileMenuOpen ? (
+                  <svg className="w-6 h-6" fill="none" stroke="#D9D8D6" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="none" stroke="#D9D8D6" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                )}
+              </button>
+            )}
           </div>
         </div>
-        <div className="flex gap-3 items-center">
-          <button
-            onClick={onEnterApp}
-            className="hidden sm:block transition-all duration-300"
-            style={{
-              background: 'transparent',
-              border: '1px solid rgba(189,154,95,0.25)',
-              color: '#D4B77A',
-              padding: '10px 24px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 500,
-              letterSpacing: '0.02em',
-              cursor: 'pointer',
-            }}
+
+        {/* Mobile Menu */}
+        {onNavigate && mobileMenuOpen && (
+          <div
+            className="lg:hidden mt-4 rounded-xl overflow-hidden"
+            style={{ background: '#0D2A4D', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            Sign In
-          </button>
-          <button
-            onClick={onEnterApp}
-            className="transition-all duration-300 hover:-translate-y-px"
-            style={{
-              background: 'linear-gradient(135deg, #BD9A5F, #A8864E)',
-              border: 'none',
-              color: '#0A2240',
-              padding: '10px 28px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              cursor: 'pointer',
-            }}
-          >
-            {user ? 'Enter Dashboard' : 'Get Started'}
-          </button>
-        </div>
+            <div style={{ padding: '12px' }}>
+              <button onClick={() => { navigate('about'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>About</button>
+              <button onClick={() => { navigate('how-it-works'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>How It Works</button>
+
+              <div style={{ padding: '8px 16px 4px', marginTop: '4px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(169,168,159,0.5)', textTransform: 'uppercase' }}>Services</span>
+              </div>
+              <button onClick={() => { navigate('services-invest'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+                <span>Precious Metals Trading</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(189,154,95,0.5)' }}>INVEST</span>
+              </button>
+              <button onClick={() => { navigate('services-indulge'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+                <span>Fine Jewelry & Design</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(189,154,95,0.5)' }}>INDULGE</span>
+              </button>
+              <button onClick={() => { navigate('services-secure'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+                <span>Vault Storage</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(189,154,95,0.5)' }}>SECURE</span>
+              </button>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '8px' }}>
+                <button onClick={() => { navigate('pricing'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>Pricing</button>
+                <button onClick={() => { navigate('contact'); setMobileMenuOpen(false); }} className="w-full px-4 py-3 text-left text-sm text-gray-200 rounded-lg hover:bg-white/5 transition-colors" style={{ fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>Contact</button>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button onClick={() => { onEnterApp(); setMobileMenuOpen(false); }} className="w-full py-3 text-sm text-center rounded-lg transition-colors" style={{ fontWeight: 500, color: '#D4B77A', border: '1px solid rgba(189,154,95,0.25)', background: 'none', cursor: 'pointer' }}>Sign In</button>
+                <button onClick={() => { onEnterApp(); setMobileMenuOpen(false); }} className="w-full py-3 text-sm text-center rounded-lg transition-colors" style={{ fontWeight: 600, color: '#0A2240', background: 'linear-gradient(135deg, #BD9A5F, #A8864E)', border: 'none', cursor: 'pointer' }}>Get Started</button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ═══ HERO ═══ */}
@@ -1232,51 +1345,78 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, use
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer
-        className="flex justify-between items-center flex-wrap"
-        style={{
-          padding: '40px clamp(24px, 4vw, 48px)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          gap: '16px',
-        }}
-      >
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '16px', color: '#A9A89F' }}>
-          <strong style={{ color: '#BD9A5F', fontWeight: 400 }}>Alex Lexington</strong> — Precious Metals & Fine Jewelry
-        </div>
-        <div className="flex" style={{ gap: '32px' }}>
-          {[
-            { label: 'Privacy', href: '#' },
-            { label: 'Terms', href: '#' },
-            { label: 'Contact', href: '#' },
-            { label: 'AlexLexington.com', href: 'https://alexlexington.com' },
-          ].map((link, i) => (
-            <a
-              key={i}
-              href={link.href}
-              target={link.href.startsWith('http') ? '_blank' : undefined}
-              rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-              className="transition-colors duration-300 hover:text-[#D4B77A]"
-              style={{
-                fontSize: '13px',
-                color: '#A9A89F',
-                textDecoration: 'none',
-                letterSpacing: '0.04em',
-              }}
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-        <div
-          style={{
-            fontSize: '12px',
-            color: '#A9A89F',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Est. 1976 &bull; Atlanta, Georgia
-        </div>
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '48px clamp(24px, 4vw, 48px) 32px' }}>
+        {onNavigate ? (
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: '32px', marginBottom: '32px' }}>
+              {/* Brand */}
+              <div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '18px', color: '#BD9A5F', fontWeight: 500, marginBottom: '8px' }}>
+                  Alex Lexington
+                </div>
+                <p style={{ fontSize: '13px', color: '#A9A89F', lineHeight: 1.6 }}>
+                  Your wealth, refined. Buy, vault, and trade precious metals with a 4th-generation Atlanta dealer.
+                </p>
+                <p style={{ fontSize: '11px', color: '#6B6B6B', marginTop: '8px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Est. 1976</p>
+              </div>
+
+              {/* Services */}
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(189,154,95,0.7)', textTransform: 'uppercase', marginBottom: '12px' }}>Services</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button onClick={() => navigate('services-invest')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>Precious Metals Trading</button>
+                  <button onClick={() => navigate('services-indulge')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>Fine Jewelry & Design</button>
+                  <button onClick={() => navigate('services-secure')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>Vault Storage</button>
+                  <button onClick={() => navigate('pricing')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>Pricing</button>
+                </div>
+              </div>
+
+              {/* Company */}
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(189,154,95,0.7)', textTransform: 'uppercase', marginBottom: '12px' }}>Company</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button onClick={() => navigate('about')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>About Us</button>
+                  <button onClick={() => navigate('how-it-works')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>How It Works</button>
+                  <button onClick={() => navigate('contact')} className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>Contact</button>
+                  <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', textDecoration: 'none' }}>AlexLexington.com</a>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(189,154,95,0.7)', textTransform: 'uppercase', marginBottom: '12px' }}>Visit Us</div>
+                <p style={{ fontSize: '13px', color: '#A9A89F', lineHeight: 1.6 }}>
+                  3335 Chamblee Dunwoody Road<br />Chamblee, GA 30341
+                </p>
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <a href="tel:+14048158893" className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', textDecoration: 'none' }}>(404) 815-8893</a>
+                  <a href="mailto:info@alexlexington.com" className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', textDecoration: 'none' }}>info@alexlexington.com</a>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom bar */}
+            <div className="flex flex-col sm:flex-row justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', gap: '12px' }}>
+              <p style={{ fontSize: '11px', color: '#6B6B6B' }}>
+                &copy; {new Date().getFullYear()} Atlanta Gold & Silver DBA Alex Lexington. All rights reserved.
+              </p>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                <a href="#" style={{ fontSize: '11px', color: '#6B6B6B', textDecoration: 'none' }}>Privacy Policy</a>
+                <a href="#" style={{ fontSize: '11px', color: '#6B6B6B', textDecoration: 'none' }}>Terms of Service</a>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Fallback minimal footer when no onNavigate */
+          <div className="flex justify-between items-center flex-wrap" style={{ gap: '16px' }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '16px', color: '#A9A89F' }}>
+              <strong style={{ color: '#BD9A5F', fontWeight: 400 }}>Alex Lexington</strong> — Precious Metals & Fine Jewelry
+            </div>
+            <div style={{ fontSize: '12px', color: '#A9A89F', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Est. 1976 &bull; Atlanta, Georgia
+            </div>
+          </div>
+        )}
       </footer>
     </div>
   );

@@ -77,7 +77,9 @@ export interface ChartDataPoint {
   value: number;
 }
 
-export type ViewState = 'landing' | 'dashboard' | 'vault' | 'wallet' | 'fund-account' | 'add' | 'history' | 'documents' | 'customers' | 'payment-methods' | 'market' | 'contact-support' | 'admin-support' | 'admin-risk' | 'explore' | 'checkout';
+export type ViewState = 'landing' | 'dashboard' | 'vault' | 'wallet' | 'fund-account' | 'add' | 'history' | 'documents' | 'customers' | 'payment-methods' | 'market' | 'contact-support' | 'admin-support' | 'admin-risk' | 'explore' | 'checkout' | 'about' | 'how-it-works' | 'services-invest' | 'services-indulge' | 'services-secure' | 'pricing' | 'contact';
+
+export const PUBLIC_VIEWS: ViewState[] = ['landing', 'about', 'how-it-works', 'services-invest', 'services-indulge', 'services-secure', 'pricing', 'contact'];
 
 export interface ProductTemplate {
   name: string;

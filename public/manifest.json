@@ -1,0 +1,23 @@
+{
+  "name": "Maroon by Alex Lexington",
+  "short_name": "Maroon",
+  "description": "Buy, vault, and trade precious metals with a 4th-generation Atlanta dealer. Live pricing, segregated storage, AI concierge.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A2240",
+  "theme_color": "#0A2240",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+
+Sitemap: https://maroon.alexlexington.com/sitemap.xml

@@ -35,7 +35,8 @@ import {
   TransactionStatus,
   RecurringFrequency,
   VaultHolding,
-  CheckoutCartItem
+  CheckoutCartItem,
+  PUBLIC_VIEWS
 } from './types';
 import { MOCK_SPOT_PRICES } from './constants';
 
@@ -75,6 +76,16 @@ const KYCVerification = lazy(() => import('./components/KYCVerification'));
 const FizTradeHub = lazy(() => import('./components/FizTradeHub'));
 const CheckoutFlow = lazy(() => import('./components/CheckoutFlow'));
 
+// Marketing pages (public, lazy-loaded)
+const MarketingLayout = lazy(() => import('./components/marketing/MarketingLayout'));
+const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
+const HowItWorksPage = lazy(() => import('./components/marketing/HowItWorksPage'));
+const ServicesInvestPage = lazy(() => import('./components/marketing/ServicesInvestPage'));
+const ServicesIndulgePage = lazy(() => import('./components/marketing/ServicesIndulgePage'));
+const ServicesSecurePage = lazy(() => import('./components/marketing/ServicesSecurePage'));
+const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
+const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
+
 export default function App() {
   // Auth State (Now using Supabase)
   const [user, setUser] = useState<User | null>(null);
@@ -102,14 +113,37 @@ export default function App() {
     return [...localInventory, ...uniqueApiHoldings];
   }, [localInventory, apiHoldings]);
   
-  // UI State
-  const [view, setView] = useState<ViewState>('landing');
+  // UI State — check hash for initial public page view
+  const [view, setView] = useState<ViewState>(() => {
+    const hash = window.location.hash.replace('#', '') as ViewState;
+    if (hash && PUBLIC_VIEWS.includes(hash)) return hash;
+    return 'landing';
+  });
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('maroon-dark-mode');
     return saved !== null ? saved === 'true' : true; // Default to dark
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
+
+  // Hash ↔ view sync for public marketing pages (enables direct-linkable URLs)
+  useEffect(() => {
+    if (PUBLIC_VIEWS.includes(view) && view !== 'landing') {
+      window.location.hash = view;
+    } else if (view === 'landing') {
+      if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+    }
+  }, [view]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '') as ViewState;
+      if (hash && PUBLIC_VIEWS.includes(hash)) setView(hash);
+      else if (!window.location.hash) setView('landing');
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
   const [showLiveChat, setShowLiveChat] = useState(false);
   const [showMaverickIntro, setShowMaverickIntro] = useState(false);
   const [liveChatPrompt, setLiveChatPrompt] = useState<string | undefined>(undefined);
@@ -803,24 +837,52 @@ export default function App() {
 
   // --- Render ---
 
-  if (view === 'landing' && !user) {
-      return (
+  // Public pages — accessible without authentication
+  if (PUBLIC_VIEWS.includes(view) && !user) {
+      const handlePublicNavigate = (v: ViewState) => { setView(v); window.scrollTo(0, 0); };
+      const handleSignIn = () => setShowAuthModal(true);
+
+      // Landing page keeps its own layout (already has built-in nav/sections)
+      if (view === 'landing') {
+        return (
           <>
             <LandingPage
-                onEnterApp={() => setShowAuthModal(true)}
-                onActivateAI={() => {
-                  setShowAuthModal(true);
-                }}
+                onEnterApp={handleSignIn}
+                onActivateAI={handleSignIn}
+                onNavigate={handlePublicNavigate}
                 user={user}
                 prices={prices}
                 inventory={inventory}
             />
-            <AuthModal 
-                isOpen={showAuthModal} 
+            <AuthModal
+                isOpen={showAuthModal}
                 onClose={() => setShowAuthModal(false)}
                 onRegistrationFlow={setIsRegistrationFlow}
             />
           </>
+        );
+      }
+
+      // All other public pages use MarketingLayout wrapper
+      return (
+        <>
+          <Suspense fallback={<div className="flex items-center justify-center h-screen bg-navy-900"><div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" /></div>}>
+            <MarketingLayout onNavigate={handlePublicNavigate} onSignIn={handleSignIn} currentView={view}>
+              {view === 'about' && <AboutPage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+              {view === 'how-it-works' && <HowItWorksPage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+              {view === 'services-invest' && <ServicesInvestPage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+              {view === 'services-indulge' && <ServicesIndulgePage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+              {view === 'services-secure' && <ServicesSecurePage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+              {view === 'pricing' && <PricingPage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+              {view === 'contact' && <ContactPage onNavigate={handlePublicNavigate} onSignIn={handleSignIn} />}
+            </MarketingLayout>
+          </Suspense>
+          <AuthModal
+              isOpen={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+              onRegistrationFlow={setIsRegistrationFlow}
+          />
+        </>
       );
   }
 
