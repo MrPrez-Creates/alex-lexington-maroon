@@ -11,6 +11,8 @@ import {
   getCustomerHoldingsByUserId,
   getCustomerOrderHistory,
   getClientVaultHoldings,
+  createClientVaultHolding,
+  updateClientVaultHolding,
   VaultHolding as ApiVaultHolding,
   PhysicalVaultHolding,
   requestWithdrawal,
@@ -619,14 +621,148 @@ export default function App() {
       }
   };
 
-  const handleManualAdd = async (_item: BullionItem) => {
-      // Manual inventory add removed (data comes from API now)
-      setView('vault');
+  // Metal type string → metal_id mapping (matches metals table in Supabase)
+  const metalTypeToId: Record<string, number> = {
+    gold: 1, silver: 2, platinum: 3, palladium: 4,
   };
 
-  const handleManualUpdate = async (_item: BullionItem) => {
-      // Manual inventory update removed (data comes from API now)
+  // Refresh vault data from API (called after add/update)
+  const refreshVaultData = async () => {
+    if (!customerId) return;
+    try {
+      const [webHoldingsRes, physicalHoldingsRes] = await Promise.all([
+        getCustomerHoldings(customerId, true),
+        getClientVaultHoldings(customerId),
+      ]);
+
+      const webItems: BullionItem[] = [];
+      if (webHoldingsRes.data?.holdings) {
+        webHoldingsRes.data.holdings.forEach((h: ApiVaultHolding) => {
+          webItems.push({
+            id: `web-${h.holding_id}`,
+            name: h.name || h.description || `${h.metal_name} (Order #${h.order_number})`,
+            metalType: mapMetalCode(h.metal_code),
+            weightAmount: h.weight_ozt,
+            weightUnit: 'oz',
+            quantity: h.quantity,
+            purchasePrice: h.cost_basis,
+            currentValue: h.current_value,
+            acquiredAt: h.purchased_at ? h.purchased_at.split('T')[0] : '',
+            form: h.weight_category || AssetForm.BAR,
+            purity: '.9999',
+            mint: 'Purchased via Maroon',
+            notes: `In Our Storage | Order #${h.order_number} | Segregated`,
+            sku: h.sku || undefined,
+          });
+        });
+      }
+
+      const physicalItems: BullionItem[] = [];
+      if (physicalHoldingsRes.data?.holdings) {
+        physicalHoldingsRes.data.holdings.forEach((h: PhysicalVaultHolding) => {
+          if (h.status !== 'held') return;
+          const metalCode = (h.metals?.code || 'GOLD');
+          physicalItems.push({
+            id: `vault-${h.holding_id}`,
+            name: h.products?.name || h.description || `${h.metals?.name || 'Metal'}`,
+            metalType: mapMetalCode(metalCode),
+            weightAmount: h.weight_ozt,
+            weightUnit: 'oz',
+            quantity: h.quantity || 1,
+            purchasePrice: h.cost_basis || 0,
+            currentValue: h.computed_current_value,
+            acquiredAt: h.deposited_at ? h.deposited_at.split('T')[0] : '',
+            form: AssetForm.BAR,
+            purity: '.9999',
+            mint: 'In Our Storage',
+            notes: `In Our Storage | ${h.bag_tag ? `Bag: ${h.bag_tag}` : 'Segregated'}`,
+            sku: h.products?.sku || undefined,
+          });
+        });
+      }
+
+      setLocalInventory([...webItems, ...physicalItems]);
+      setApiHoldings([]);
+    } catch (error) {
+      console.error('[Maroon] Failed to refresh vault data:', error);
+    }
+  };
+
+  const handleManualAdd = async (item: BullionItem) => {
+    if (!customerId) {
+      console.error('[Maroon] No customerId — cannot save vault holding');
       setView('vault');
+      return;
+    }
+
+    try {
+      const metalId = metalTypeToId[item.metalType.toLowerCase()] || 1;
+      // Convert weight to troy ounces if needed
+      let weightOzt = item.weightAmount;
+      if (item.weightUnit === 'g') weightOzt = item.weightAmount / 31.1035;
+      if (item.weightUnit === 'kg') weightOzt = (item.weightAmount * 1000) / 31.1035;
+
+      const costPerOzt = weightOzt > 0 && item.quantity > 0
+        ? item.purchasePrice / (weightOzt * item.quantity)
+        : 0;
+
+      await createClientVaultHolding(customerId, {
+        metal_id: metalId,
+        description: item.name,
+        weight_ozt: weightOzt,
+        quantity: item.quantity || 1,
+        cost_basis: item.purchasePrice || 0,
+        purchase_price_per_ozt: costPerOzt,
+        notes: [item.purity && `Purity: ${item.purity}`, item.mint && `Mint: ${item.mint}`, item.notes].filter(Boolean).join(' | '),
+      });
+
+      // Refresh vault data from API so new item appears
+      await refreshVaultData();
+      setView('vault');
+    } catch (error) {
+      console.error('[Maroon] Failed to save vault holding:', error);
+      alert('Failed to save item. Please try again.');
+    }
+  };
+
+  const handleManualUpdate = async (item: BullionItem) => {
+    if (!customerId) {
+      setView('vault');
+      return;
+    }
+
+    // Extract holding ID from item.id (format: "vault-123" or "web-456")
+    const holdingIdMatch = item.id.match(/^vault-(\d+)$/);
+
+    if (holdingIdMatch) {
+      // Existing vault holding — PATCH update
+      try {
+        const weightOzt = item.weightUnit === 'g'
+          ? item.weightAmount / 31.1035
+          : item.weightUnit === 'kg'
+            ? (item.weightAmount * 1000) / 31.1035
+            : item.weightAmount;
+
+        const costPerOzt = weightOzt > 0 && item.quantity > 0
+          ? item.purchasePrice / (weightOzt * item.quantity)
+          : 0;
+
+        await updateClientVaultHolding(holdingIdMatch[1], {
+          cost_basis: item.purchasePrice || 0,
+          purchase_price_per_ozt: costPerOzt,
+          notes: [item.purity && `Purity: ${item.purity}`, item.mint && `Mint: ${item.mint}`, item.notes].filter(Boolean).join(' | '),
+        });
+
+        await refreshVaultData();
+        setView('vault');
+      } catch (error) {
+        console.error('[Maroon] Failed to update vault holding:', error);
+        alert('Failed to update item. Please try again.');
+      }
+    } else {
+      // New item being consolidated or non-vault item — create as new
+      await handleManualAdd(item);
+    }
   };
 
   // --- Memoized Callbacks (prevent unnecessary child re-renders) ---

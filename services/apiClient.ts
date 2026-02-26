@@ -367,6 +367,50 @@ export async function getClientVaultHoldings(
   return apiFetch(`/api/client-holdings/${customerId}`);
 }
 
+/**
+ * Create a new vault holding for a customer (POST /api/client-holdings/:customerId/deposit)
+ * Inserts into client_vault_holdings table
+ */
+export async function createClientVaultHolding(
+  customerId: string | number,
+  item: {
+    metal_id: number;
+    description: string;
+    weight_ozt: number;
+    quantity?: number;
+    cost_basis?: number;
+    purchase_price_per_ozt?: number;
+    notes?: string;
+  }
+): Promise<ApiResponse<any>> {
+  return apiFetch(`/api/client-holdings/${customerId}/deposit`, {
+    method: 'POST',
+    body: JSON.stringify({
+      items: [item],
+      source_type: 'manual_entry',
+    }),
+  });
+}
+
+/**
+ * Update an existing vault holding (PATCH /api/client-holdings/holding/:holdingId)
+ * Only allows: cost_basis, purchase_price_per_ozt, notes, status, location_id, bag_tag
+ */
+export async function updateClientVaultHolding(
+  holdingId: number | string,
+  updates: {
+    cost_basis?: number;
+    purchase_price_per_ozt?: number;
+    notes?: string;
+    status?: string;
+  }
+): Promise<ApiResponse<any>> {
+  return apiFetch(`/api/client-holdings/holding/${holdingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+}
+
 // ============================================
 // FUNDING / WITHDRAWAL ENDPOINTS
 // ============================================
