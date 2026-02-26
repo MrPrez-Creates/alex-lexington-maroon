@@ -48,6 +48,7 @@ import MarketStatus from './components/MarketStatus';
 import AuthModal from './components/AuthModal';
 import { useMaverickIntro } from './hooks/useMaverickIntro';
 import { useKYCCheck } from './hooks/useKYCCheck';
+import { useSessionTimeout } from './hooks/useSessionTimeout';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy-loaded components (loaded on demand when user navigates)
@@ -220,6 +221,20 @@ export default function App() {
 
   // KYC Hook
   const { initiateKYC, kycStatus: kycHookStatus } = useKYCCheck(customerId ? parseInt(customerId) : null);
+
+  // Session Timeout + Auth Error Recovery
+  const {
+    showTimeoutWarning,
+    dismissWarning,
+    showAuthExpired,
+  } = useSessionTimeout({
+    onLogout: async () => {
+      await logoutUser();
+      setShowSideMenu(false);
+      setView('landing');
+    },
+    enabled: !!user,
+  });
 
   // --- Helpers ---
 
@@ -956,6 +971,23 @@ export default function App() {
          {/* Ticker under header */}
          <LiveTicker prices={prices} />
       </header>
+
+      {/* Session Timeout Warning */}
+      {showTimeoutWarning && (
+        <div className="fixed top-0 left-0 right-0 z-[200] bg-amber-600 text-white px-4 py-3 flex items-center justify-between shadow-lg">
+          <span className="text-sm font-medium">Your session will expire soon due to inactivity.</span>
+          <button onClick={dismissWarning} className="bg-white text-amber-700 px-4 py-1 rounded text-sm font-semibold hover:bg-amber-50">
+            Stay Signed In
+          </button>
+        </div>
+      )}
+
+      {/* Auth Expired Banner */}
+      {showAuthExpired && (
+        <div className="fixed top-0 left-0 right-0 z-[200] bg-red-600 text-white px-4 py-3 text-center shadow-lg">
+          <span className="text-sm font-medium">Your session has expired. Signing you out...</span>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pt-28 pb-32 scroll-smooth">

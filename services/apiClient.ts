@@ -3,7 +3,16 @@
  * Connects Maroon customer app to Supabase backend via Cloudflare Worker
  */
 
+import { supabase } from '../lib/supabase';
+
 const API_BASE = import.meta.env.VITE_API_URL || 'https://al-business-api.andre-46c.workers.dev';
+
+// Auth error event — components can listen to trigger re-login
+export const AUTH_ERROR_EVENT = 'maroon:auth-error';
+
+function emitAuthError() {
+  window.dispatchEvent(new CustomEvent(AUTH_ERROR_EVENT));
+}
 
 interface ApiResponse<T> {
   data: T;
@@ -80,11 +89,17 @@ export interface PriceLock {
 }
 
 /**
- * Generic API fetch with error handling
+ * Generic API fetch with error handling and auth recovery.
+ *
+ * If a request returns 401/403:
+ *   1. Try to refresh the Supabase session once
+ *   2. If refresh works, retry the original request
+ *   3. If refresh fails, emit auth-error event so App can show login
  */
 async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  _isRetry = false
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
@@ -95,6 +110,20 @@ async function apiFetch<T>(
       ...options.headers,
     },
   });
+
+  // Auth error recovery
+  if ((response.status === 401 || response.status === 403) && !_isRetry) {
+    console.warn(`[apiClient] ${response.status} on ${endpoint} — attempting session refresh`);
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError) {
+      // Session refreshed — retry the request once
+      return apiFetch<T>(endpoint, options, true);
+    }
+    // Refresh failed — session is dead, notify app
+    console.error('[apiClient] Session refresh failed — emitting auth error');
+    emitAuthError();
+    throw new Error('Your session has expired. Please sign in again.');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }));
