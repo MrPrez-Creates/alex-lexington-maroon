@@ -255,13 +255,15 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
                 <p className="text-gray-300 leading-relaxed mb-6">
                   See our collections in person at our Chamblee, Georgia showroom. By appointment, so you always receive personal, unhurried attention from our team.
                 </p>
-                <button
-                  onClick={() => onNavigate('contact')}
-                  className="px-6 py-3 text-sm font-semibold rounded-xl transition-all hover:shadow-lg hover:shadow-gold-500/20 hover:-translate-y-0.5"
+                <a
+                  href="https://calendly.com/info-54784"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 text-sm font-semibold rounded-xl transition-all hover:shadow-lg hover:shadow-gold-500/20 hover:-translate-y-0.5"
                   style={{ background: 'linear-gradient(135deg, #BD9A5F 0%, #D4B77A 100%)' }}
                 >
                   <span style={{ color: '#0A2240' }}>Schedule a Visit</span>
-                </button>
+                </a>
               </div>
               <div className="space-y-4">
                 {[
@@ -329,12 +331,14 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
             >
               <span style={{ color: '#0A2240' }}>Explore Our Collection</span>
             </a>
-            <button
-              onClick={() => onNavigate('contact')}
-              className="px-8 py-3.5 text-sm font-medium text-gold-500 border border-gold-500/30 rounded-xl hover:bg-gold-500/10 transition-colors"
+            <a
+              href="https://calendly.com/info-54784"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-8 py-3.5 text-sm font-medium text-gold-500 border border-gold-500/30 rounded-xl hover:bg-gold-500/10 transition-colors inline-block"
             >
               Schedule a Visit
-            </button>
+            </a>
           </div>
         </div>
       </section>

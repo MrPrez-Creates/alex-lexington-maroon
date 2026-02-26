@@ -13,6 +13,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ onNavigate, onSignIn }) => {
       title: 'Visit Us',
       primary: '3335 Chamblee Dunwoody Road',
       secondary: 'Chamblee, GA 30341',
+      tertiary: 'By appointment \u2013 Mon\u2013Fri, 10am\u20134pm',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -23,7 +24,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ onNavigate, onSignIn }) => {
     {
       title: 'Call Us',
       primary: '(404) 815-8893',
-      secondary: 'Monday \u2013 Friday, 9am \u2013 5pm EST',
+      secondary: 'Monday \u2013 Friday, 10am \u2013 4pm EST',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
@@ -116,8 +117,76 @@ const ContactPage: React.FC<ContactPageProps> = ({ onNavigate, onSignIn }) => {
                 <h3 className="font-serif text-lg text-white mb-3">{card.title}</h3>
                 <p className="text-gray-300 font-medium">{card.primary}</p>
                 <p className="text-sm text-gray-400 mt-1">{card.secondary}</p>
+                {'tertiary' in card && card.tertiary && (
+                  <p className="text-sm text-gold-500/70 mt-1">{card.tertiary}</p>
+                )}
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Book an Appointment */}
+      <section className="py-20 sm:py-24 border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500 uppercase">By Appointment</span>
+            <h2 className="font-serif text-3xl sm:text-4xl font-light text-white mt-3">
+              Schedule a <span className="italic" style={{ color: '#D4B77A' }}>Consultation</span>
+            </h2>
+            <p className="text-gray-400 mt-4 max-w-xl mx-auto">
+              We see clients by appointment Monday through Friday, 10am – 4pm EST. Choose the consultation that fits your needs.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {/* Buy / Invest Consultation */}
+            <a
+              href="https://calendly.com/info-54784/15min-invest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group p-6 sm:p-8 rounded-2xl border border-white/5 hover:border-gold-500/20 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-300 text-center block"
+            >
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gold-500/10 text-gold-500 mx-auto mb-5">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <h3 className="font-serif text-xl text-white mb-2">Bullion Consultation</h3>
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                Interested in buying gold, silver, platinum, or palladium? Let's discuss your investment goals.
+              </p>
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gold-500 group-hover:gap-2.5 transition-all">
+                Book 15-Min Call
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </span>
+            </a>
+
+            {/* Sell Consultation */}
+            <a
+              href="https://calendly.com/info-54784/15-min-consultation-sell"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group p-6 sm:p-8 rounded-2xl border border-white/5 hover:border-gold-500/20 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-300 text-center block"
+            >
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gold-500/10 text-gold-500 mx-auto mb-5">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="font-serif text-xl text-white mb-2">Sell Your Metals</h3>
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                Looking to sell coins, bullion, or precious metals? Get a competitive quote from our team.
+              </p>
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gold-500 group-hover:gap-2.5 transition-all">
+                Book 15-Min Call
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </span>
+            </a>
           </div>
         </div>
       </section>

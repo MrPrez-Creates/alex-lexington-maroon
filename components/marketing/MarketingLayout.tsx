@@ -257,10 +257,13 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children, onNavigate,
                 3335 Chamblee Dunwoody Road<br />
                 Chamblee, GA 30341
               </address>
-              <div className="mt-4 space-y-1.5">
+              <p className="text-sm text-gray-400 mt-3">Mon–Fri, 10am – 4pm EST</p>
+              <p className="text-xs text-gold-500/60 mt-1">By appointment only</p>
+              <div className="mt-3 space-y-1.5">
                 <a href="tel:+14048158893" className="block text-sm text-gray-400 hover:text-gold-500 transition-colors">(404) 815-8893</a>
                 <a href="mailto:info@alexlexington.com" className="block text-sm text-gray-400 hover:text-gold-500 transition-colors">info@alexlexington.com</a>
               </div>
+              <a href="https://calendly.com/info-54784" target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-xs font-medium text-gold-500 hover:text-gold-400 transition-colors">Book an Appointment &rarr;</a>
             </div>
           </div>
 

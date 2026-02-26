@@ -131,7 +131,7 @@ const ContactSupport: React.FC<ContactSupportProps> = ({ userProfile }) => {
       </div>
 
       <div className="text-center text-xs text-gray-400 mt-4">
-        Support Hours: Mon-Fri, 9AM - 5PM EST
+        Support Hours: Mon-Fri, 10AM - 4PM EST
         <br/>
         Atlanta, GA
       </div>

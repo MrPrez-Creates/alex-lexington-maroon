@@ -1388,10 +1388,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
                 <p style={{ fontSize: '13px', color: '#A9A89F', lineHeight: 1.6 }}>
                   3335 Chamblee Dunwoody Road<br />Chamblee, GA 30341
                 </p>
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <p style={{ fontSize: '12px', color: '#A9A89F', marginTop: '8px' }}>Mon–Fri, 10am – 4pm EST</p>
+                <p style={{ fontSize: '11px', color: 'rgba(189,154,95,0.6)', marginTop: '2px' }}>By appointment only</p>
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <a href="tel:+14048158893" className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', textDecoration: 'none' }}>(404) 815-8893</a>
                   <a href="mailto:info@alexlexington.com" className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '13px', color: '#A9A89F', textDecoration: 'none' }}>info@alexlexington.com</a>
                 </div>
+                <a href="https://calendly.com/info-54784" target="_blank" rel="noopener noreferrer" className="transition-colors duration-300 hover:text-[#D4B77A]" style={{ fontSize: '12px', color: '#BD9A5F', textDecoration: 'none', marginTop: '8px', display: 'inline-block' }}>Book an Appointment &rarr;</a>
               </div>
             </div>
 
