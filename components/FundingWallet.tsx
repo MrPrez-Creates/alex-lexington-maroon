@@ -28,6 +28,7 @@ interface FundingTransaction {
   description: string;
   initiated_at: string;
   completed_at: string | null;
+  plaid_transfer_id?: string;
   bank_account?: {
     institution_name: string;
     account_mask: string;
@@ -63,6 +64,7 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
   const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+  const [checkingTransferId, setCheckingTransferId] = useState<string | null>(null);
 
   // Fetch balance and accounts
   const fetchData = useCallback(async () => {
@@ -160,6 +162,25 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
     }
   };
 
+  // Check status of a pending/processing transfer by polling Plaid's API
+  const checkTransferStatus = async (transferId: string) => {
+    setCheckingTransferId(transferId);
+    try {
+      const response = await fetch(`${API_BASE}/api/plaid/transfer/${transferId}`);
+      if (!response.ok) {
+        throw new Error('Unable to check status');
+      }
+      // The endpoint auto-updates the local DB record if status changed.
+      // Refresh wallet data to show the updated status.
+      await fetchData();
+    } catch (err: any) {
+      console.error('Check transfer status error:', err);
+      setError('Unable to check transfer status. Please try again.');
+    } finally {
+      setCheckingTransferId(null);
+    }
+  };
+
   // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -237,6 +258,21 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
           )}
         </div>
       </div>
+
+      {/* Global Error Banner (for check-status errors and other non-modal errors) */}
+      {error && !showDeposit && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-3 flex items-center justify-between">
+          <p className="text-red-400 text-sm">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300 ml-3 flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Fund Your Account — Two Options */}
       <div>
@@ -498,6 +534,29 @@ const FundingWallet: React.FC<FundingWalletProps> = ({
                   <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(tx.status)}`}>
                     {tx.status}
                   </span>
+                  {/* Check Status button for pending/processing transfers */}
+                  {['pending', 'processing'].includes(tx.status) && tx.plaid_transfer_id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        checkTransferStatus(tx.plaid_transfer_id!);
+                      }}
+                      disabled={checkingTransferId === tx.plaid_transfer_id}
+                      className="block mt-1 text-[10px] text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
+                    >
+                      {checkingTransferId === tx.plaid_transfer_id ? (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Checking...
+                        </span>
+                      ) : (
+                        'Check Status ↻'
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
