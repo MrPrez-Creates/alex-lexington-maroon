@@ -67,7 +67,7 @@ const ServicesInvestPage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
     {
       number: '03',
       title: 'Hold',
-      desc: 'Your metal is held at Dillon Gage or vaulted in Alex Lexington\u2019s segregated storage. Track it in your portfolio. Sell back anytime at live spot pricing.',
+      desc: 'Your metal is held securely at IDS of Delaware or vaulted in Alex Lexington\u2019s segregated storage in Atlanta. Track it in your portfolio. Sell back anytime at live spot pricing.',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -149,9 +149,11 @@ const ServicesInvestPage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
           style={{ background: 'radial-gradient(circle, rgba(189,154,95,0.3) 0%, transparent 70%)' }}
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="inline-block mb-6">
-            <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 block mx-auto opacity-70 hover:opacity-100 transition-opacity" />
-          </a>
+          <div className="flex justify-center mb-6">
+            <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer">
+              <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 opacity-70 hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
           <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">
             INVEST
           </span>
@@ -215,7 +217,7 @@ const ServicesInvestPage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
               </h2>
               <div className="space-y-4 text-gray-300 leading-relaxed">
                 <p>
-                  Every price you see on Maroon is derived from live spot data through our FizTrade connection to Dillon Gage, one of the nation's largest precious metals wholesalers.
+                  Every price you see on Maroon is derived from live spot data through our direct FizTrade connection to the wholesale precious metals market.
                 </p>
                 <p>
                   We publish our margins clearly. Gold bullion carries a 3\u20133.5% premium over spot. Silver runs 6\u201310%. What you see on the screen is what you pay \u2014 no hidden spreads, no surprise fees at checkout.
@@ -227,7 +229,7 @@ const ServicesInvestPage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
             </div>
             <div className="space-y-4">
               {[
-                { label: 'Real-Time Spot Data', desc: 'Prices sourced directly from FizTrade via Dillon Gage' },
+                { label: 'Real-Time Spot Data', desc: 'Prices sourced directly from the FizTrade wholesale network' },
                 { label: 'Published Margins', desc: 'No hidden spreads \u2014 premium over spot disclosed before you buy' },
                 { label: '20-Second Price Lock', desc: 'Your price is guaranteed the moment you confirm' },
                 { label: 'Instant Execution', desc: 'LockPrices \u2192 ExecuteTrade fires the moment payment clears' },

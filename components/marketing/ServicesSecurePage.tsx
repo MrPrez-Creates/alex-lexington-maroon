@@ -21,9 +21,11 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
         <div className="absolute inset-0 bg-gradient-to-b from-navy-800/50 to-navy-900" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(189,154,95,0.3) 0%, transparent 70%)' }} />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="inline-block mb-6">
-            <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 block mx-auto opacity-70 hover:opacity-100 transition-opacity" />
-          </a>
+          <div className="flex justify-center mb-6">
+            <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer">
+              <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 opacity-70 hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
           <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">SECURE &middot; Vault Storage</span>
           <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-light text-white leading-tight mb-6">
             Your Metals,<br />
@@ -313,7 +315,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
                   Your metals are held in our secure vault facility in Atlanta, Georgia — the same city where Alex Lexington has operated since 1976. Professional custody, modern security, and decades of precious metals expertise under one roof.
                 </p>
                 <p>
-                  For large holdings or overflow capacity, we partner with Dillon Gage and CNT Depository — among the largest and most respected precious metals depositories in the United States.
+                  For large holdings or overflow capacity, we partner with IDS (International Depository Services) and CNT Depository — among the largest and most respected precious metals depositories in the United States.
                 </p>
               </div>
             </div>
@@ -321,7 +323,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
               {[
                 { title: 'Physical Vault', desc: 'Purpose-built precious metals storage in Atlanta, GA' },
                 { title: 'Professional Custody', desc: 'Insurance-grade custody records on every holding' },
-                { title: 'Dillon Gage / CNT', desc: 'Overflow custody through the nation\'s top depositories' },
+                { title: 'IDS / CNT', desc: 'Overflow custody through the nation\'s top depositories' },
                 { title: 'Individual Tracking', desc: 'Every item logged by product, weight, purity, and bin' },
               ].map((item, i) => (
                 <div key={i} className="p-5 rounded-2xl border border-white/5 bg-white/[0.02]">

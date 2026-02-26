@@ -81,9 +81,11 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
           style={{ background: 'radial-gradient(circle, rgba(189,154,95,0.3) 0%, transparent 70%)' }}
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="inline-block mb-6">
-            <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 block mx-auto opacity-70 hover:opacity-100 transition-opacity" />
-          </a>
+          <div className="flex justify-center mb-6">
+            <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer">
+              <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 opacity-70 hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
           <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">
             INDULGE
           </span>
