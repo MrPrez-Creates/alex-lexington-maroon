@@ -36,6 +36,18 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   const [linkedAccount, setLinkedAccount] = useState<BankAccountInfo | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stabilize callback props via refs — prevents parent re-renders (e.g. spot price ticker)
+  // from causing link token refetches that kill active Plaid Link sessions
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  // Track if link token has been fetched (prevent re-fetches from parent re-renders)
+  const tokenFetchedRef = useRef(false);
+
   // Clear any active timeout
   const clearActiveTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -50,7 +62,11 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   }, [clearActiveTimeout]);
 
   // Fetch link token for bank connection
-  const fetchLinkToken = useCallback(async () => {
+  const fetchLinkToken = useCallback(async (force = false) => {
+    // Don't re-fetch if already fetched (unless forced by retry)
+    if (tokenFetchedRef.current && !force) return;
+    tokenFetchedRef.current = true;
+
     setStatus('loading');
     setErrorMessage(null);
     clearActiveTimeout();
@@ -59,7 +75,8 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
     timeoutRef.current = setTimeout(() => {
       setErrorMessage('Connection timed out. Please check your internet connection and try again.');
       setStatus('error');
-      onError?.('Link token request timed out');
+      tokenFetchedRef.current = false; // Allow retry
+      onErrorRef.current?.('Link token request timed out');
     }, LOADING_TIMEOUT);
 
     try {
@@ -86,14 +103,15 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
       console.error('Error fetching link token:', err);
       setErrorMessage(err.message || 'Failed to initialize bank connection');
       setStatus('error');
-      onError?.(err.message);
+      tokenFetchedRef.current = false; // Allow retry
+      onErrorRef.current?.(err.message);
     }
-  }, [customerId, onError, clearActiveTimeout]);
+  }, [customerId, clearActiveTimeout]);
 
-  // Fetch link token on mount
+  // Fetch link token on mount ONLY
   useEffect(() => {
     fetchLinkToken();
-  }, [fetchLinkToken]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle successful bank link
   const handlePlaidSuccess = useCallback(async (publicToken: string, metadata: any) => {
@@ -105,7 +123,7 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
     timeoutRef.current = setTimeout(() => {
       setErrorMessage('Linking is taking longer than expected. Please try again.');
       setStatus('error');
-      onError?.('Token exchange timed out');
+      onErrorRef.current?.('Token exchange timed out');
     }, LINKING_TIMEOUT);
 
     try {
@@ -141,46 +159,87 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
       setStatus('success');
 
       setTimeout(() => {
-        onSuccess(accountInfo);
+        onSuccessRef.current(accountInfo);
       }, 1500);
     } catch (err: any) {
       clearActiveTimeout();
       console.error('Error exchanging token:', err);
       setErrorMessage(err.message || 'Failed to link bank account');
       setStatus('error');
-      onError?.(err.message);
+      onErrorRef.current?.(err.message);
     }
-  }, [customerId, onSuccess, onError, clearActiveTimeout]);
+  }, [customerId, clearActiveTimeout]);
 
   // Track whether onSuccess already fired (prevent onExit from closing modal after success)
   const successFiredRef = useRef(false);
+  // Track whether user has started interacting with an institution (prevents false "cancel" on OAuth exits)
+  const institutionSelectedRef = useRef(false);
 
   // Plaid Link configuration
   const plaidConfig: PlaidLinkOptions = {
     token: linkToken || '',
     receivedRedirectUri: receivedRedirectUri || undefined,
     onSuccess: (publicToken, metadata) => {
+      console.log('[PlaidBankLink] onSuccess fired:', metadata);
       successFiredRef.current = true;
+      institutionSelectedRef.current = false;
       handlePlaidSuccess(publicToken, metadata);
     },
     onExit: (err, metadata) => {
+      console.log('[PlaidBankLink] onExit fired:', { err, status: (metadata as any)?.status, metadata });
+
       // IMPORTANT: Plaid fires onExit AFTER onSuccess in many flows.
       // Only close the modal if onSuccess hasn't already fired.
       if (successFiredRef.current) {
-        console.log('Plaid onExit ignored — onSuccess already handled this flow');
+        console.log('[PlaidBankLink] onExit ignored — onSuccess already handled this flow');
         return;
       }
+
+      const exitStatus = (metadata as any)?.status;
+
       if (err) {
-        setErrorMessage(err.display_message || 'Connection was interrupted');
+        // Plaid reported an explicit error
+        console.error('[PlaidBankLink] Plaid Link error:', err);
+        setErrorMessage(err.display_message || err.error_message || 'Connection was interrupted. Please try again.');
         setStatus('error');
-        onError?.(err.display_message || 'Connection error');
+        onErrorRef.current?.(err.display_message || 'Connection error');
+      } else if (exitStatus && exitStatus !== 'choose_device' && exitStatus !== 'requires_code') {
+        // Flow was interrupted with a status (not a clean cancel).
+        // Common statuses: requires_credentials, requires_questions, requires_selections,
+        // institution_not_found, institution_not_supported, unknown
+        console.warn('[PlaidBankLink] Plaid Link exited with status:', exitStatus);
+        const statusMessages: Record<string, string> = {
+          requires_credentials: 'Your bank requires additional verification. Please try again.',
+          requires_questions: 'Security questions were not completed. Please try again.',
+          requires_selections: 'Account selection was not completed. Please try again.',
+          institution_not_found: 'This bank was not found. Please try a different institution.',
+          institution_not_supported: 'This bank is not currently supported for ACH linking.',
+        };
+        setErrorMessage(statusMessages[exitStatus] || `Connection interrupted. Please try again.`);
+        setStatus('error');
+        // Fetch a fresh link token to avoid stale state on retry
+        setLinkToken(null);
+      } else if (institutionSelectedRef.current) {
+        // User had selected an institution but onExit fired without error/status.
+        // This happens with some OAuth banks (Wells Fargo, Chase) when the flow
+        // is interrupted — treat as an error, not a cancel.
+        console.warn('[PlaidBankLink] OAuth flow interrupted after institution selection');
+        setErrorMessage('Bank connection was interrupted. Please try again.');
+        setStatus('error');
+        // Fetch a fresh link token to avoid stale OAuth state
+        setLinkToken(null);
       } else {
-        // User cancelled — close the modal
-        onExit();
+        // Clean cancel — user closed Plaid Link before selecting a bank
+        institutionSelectedRef.current = false;
+        onExitRef.current();
       }
     },
     onEvent: (eventName, metadata) => {
-      console.log('Plaid event:', eventName, metadata);
+      console.log('[PlaidBankLink] Plaid event:', eventName, metadata);
+      // Track when user selects an institution — helps distinguish cancel from OAuth interruption
+      if (eventName === 'SELECT_INSTITUTION' || eventName === 'HANDOFF' || eventName === 'OPEN_OAUTH') {
+        institutionSelectedRef.current = true;
+      }
     },
   };
 
@@ -208,6 +267,7 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
       return;
     }
     successFiredRef.current = false;
+    institutionSelectedRef.current = false;
     open();
   }, [linkToken, ready, open]);
 
@@ -317,7 +377,10 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
                 onClick={() => {
                   setStatus('idle');
                   setErrorMessage(null);
-                  fetchLinkToken();
+                  institutionSelectedRef.current = false;
+                  successFiredRef.current = false;
+                  setLinkToken(null);
+                  fetchLinkToken(true);
                 }}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl font-bold hover:from-blue-400 hover:to-blue-500 transition-all"
               >
@@ -327,7 +390,7 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
 
             {status === 'success' && (
               <button
-                onClick={() => onSuccess(linkedAccount!)}
+                onClick={() => onSuccessRef.current(linkedAccount!)}
                 className="w-full bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-400 transition-colors"
               >
                 Continue
@@ -339,7 +402,7 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
               <button
                 onClick={() => {
                   clearActiveTimeout();
-                  onExit();
+                  onExitRef.current();
                 }}
                 className="w-full text-gray-400 py-2 text-sm hover:text-white transition-colors"
               >
@@ -369,4 +432,4 @@ const PlaidBankLink: React.FC<PlaidBankLinkProps> = ({
   );
 };
 
-export default PlaidBankLink;
+export default React.memo(PlaidBankLink);
