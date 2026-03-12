@@ -17,7 +17,12 @@ import {
   PhysicalVaultHolding,
   requestWithdrawal,
   createTradeOrder,
-  checkPlaidHealth
+  checkPlaidHealth,
+  getPersonalHoldings,
+  createPersonalHolding,
+  updatePersonalHolding,
+  deletePersonalHolding,
+  PersonalHoldingRecord
 } from './services/apiClient';
 import { resolveCustomerId } from './services/apiService';
 import type { SharedCustomer } from './types';
@@ -102,18 +107,19 @@ export default function App() {
   const [prices, setPrices] = useState<SpotPrices>(MOCK_SPOT_PRICES);
   const [localInventory, setLocalInventory] = useState<BullionItem[]>([]);
   const [apiHoldings, setApiHoldings] = useState<BullionItem[]>([]);
+  const [personalHoldings, setPersonalHoldings] = useState<BullionItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [vaultHoldings, setVaultHoldings] = useState<VaultHolding[]>([]);
 
-  // Combined inventory: local items + API holdings from Supabase
+  // Combined inventory: local items + API holdings + personal holdings from Supabase
   const inventory = useMemo(() => {
     // Dedupe by checking if an API holding matches a local item by source order ID
     const localIds = new Set(localInventory.map(item => item.id));
     const uniqueApiHoldings = apiHoldings.filter(h => !localIds.has(h.id));
-    return [...localInventory, ...uniqueApiHoldings];
-  }, [localInventory, apiHoldings]);
+    return [...localInventory, ...uniqueApiHoldings, ...personalHoldings];
+  }, [localInventory, apiHoldings, personalHoldings]);
   
   // UI State — check hash for initial public page view
   const [view, setView] = useState<ViewState>(() => {
@@ -284,6 +290,7 @@ export default function App() {
         setView('landing');
         setLocalInventory([]);
         setApiHoldings([]);
+        setPersonalHoldings([]);
         setTransactions([]);
         setCustomerId(null);
         setApiCustomer(null);
@@ -474,7 +481,40 @@ export default function App() {
           };
 
           fetchAllData();
-          const interval = setInterval(fetchAllData, 60000);
+
+          // Fetch personal holdings (keyed by auth UID, not customer ID)
+          const fetchPersonalHoldings = async () => {
+            if (user?.id) {
+              try {
+                const personalRes = await getPersonalHoldings(user.id);
+                if (!cancelled) {
+                  const personalItems: BullionItem[] = (personalRes.holdings || []).map((h: PersonalHoldingRecord) => ({
+                    id: `personal-${h.holding_id}`,
+                    name: h.name,
+                    metalType: h.metal_type,
+                    weightAmount: h.weight_amount,
+                    weightUnit: h.weight_unit || 'oz',
+                    quantity: h.quantity,
+                    purchasePrice: h.purchase_price,
+                    acquiredAt: h.acquired_at,
+                    form: h.form || 'Coin',
+                    purity: h.purity || undefined,
+                    mint: h.mint || undefined,
+                    mintage: h.mintage || undefined,
+                    sku: h.sku || undefined,
+                    notes: h.notes ? `Self-Stored | ${h.notes}` : 'Self-Stored',
+                  }));
+                  setPersonalHoldings(personalItems);
+                }
+              } catch (err) {
+                console.warn('[App] Personal holdings fetch failed:', err);
+                if (!cancelled) setPersonalHoldings([]);
+              }
+            }
+          };
+          fetchPersonalHoldings();
+
+          const interval = setInterval(() => { fetchAllData(); fetchPersonalHoldings(); }, 60000);
           return () => { cancelled = true; clearInterval(interval); };
       }
 
@@ -762,50 +802,102 @@ export default function App() {
     }
   };
 
+  // Helper to map a PersonalHoldingRecord to a BullionItem
+  const mapPersonalHolding = (h: PersonalHoldingRecord): BullionItem => ({
+    id: `personal-${h.holding_id}`,
+    name: h.name,
+    metalType: h.metal_type,
+    weightAmount: h.weight_amount,
+    weightUnit: h.weight_unit || 'oz',
+    quantity: h.quantity,
+    purchasePrice: h.purchase_price,
+    acquiredAt: h.acquired_at,
+    form: h.form || 'Coin',
+    purity: h.purity || undefined,
+    mint: h.mint || undefined,
+    mintage: h.mintage || undefined,
+    sku: h.sku || undefined,
+    notes: h.notes ? `Self-Stored | ${h.notes}` : 'Self-Stored',
+  });
+
   const handleManualAdd = async (item: BullionItem): Promise<boolean> => {
-    if (!customerId) {
-      console.error('[Maroon] No customerId — cannot save vault holding');
-      alert('Unable to save — your account is still loading. Please wait a moment and try again.');
-      return false;
+    // Personal holdings: save via personal holdings API (keyed by auth UID)
+    if (user?.id) {
+      try {
+        console.log('[Maroon] Saving personal holding for user', user.id, item.name);
+
+        await createPersonalHolding(user.id, {
+          name: item.name,
+          metal_type: item.metalType,
+          form: item.form,
+          weight_amount: item.weightAmount,
+          weight_unit: item.weightUnit,
+          purity: item.purity,
+          quantity: item.quantity,
+          purchase_price: item.purchasePrice,
+          acquired_at: item.acquiredAt,
+          mint: item.mint,
+          mintage: item.mintage,
+          sku: item.sku,
+          notes: item.notes,
+        });
+
+        console.log('[Maroon] Personal holding saved, refreshing data...');
+
+        // Refresh personal holdings from API so new item appears
+        const personalRes = await getPersonalHoldings(user.id);
+        const personalItems: BullionItem[] = (personalRes.holdings || []).map(mapPersonalHolding);
+        setPersonalHoldings(personalItems);
+
+        setView('vault');
+        return true;
+      } catch (error) {
+        console.error('[Maroon] Failed to save personal holding:', error);
+        alert('Failed to save item. Please try again.');
+        return false;
+      }
     }
 
-    try {
-      const metalId = metalTypeToId[item.metalType.toLowerCase()] || 1;
-      // Convert weight to troy ounces if needed
-      let weightOzt = item.weightAmount;
-      if (item.weightUnit === 'g') weightOzt = item.weightAmount / 31.1035;
-      if (item.weightUnit === 'kg') weightOzt = (item.weightAmount * 1000) / 31.1035;
-
-      const costPerOzt = weightOzt > 0 && item.quantity > 0
-        ? item.purchasePrice / (weightOzt * item.quantity)
-        : 0;
-
-      console.log('[Maroon] Saving vault holding for customer', customerId, item.name);
-
-      await createClientVaultHolding(customerId, {
-        metal_id: metalId,
-        description: item.name,
-        weight_ozt: weightOzt,
-        quantity: item.quantity || 1,
-        cost_basis: item.purchasePrice || 0,
-        purchase_price_per_ozt: costPerOzt,
-        notes: [item.purity && `Purity: ${item.purity}`, item.mint && `Mint: ${item.mint}`, item.notes].filter(Boolean).join(' | '),
-      });
-
-      console.log('[Maroon] Vault holding saved, refreshing data...');
-
-      // Refresh vault data from API so new item appears
-      await refreshVaultData();
-      setView('vault');
-      return true;
-    } catch (error) {
-      console.error('[Maroon] Failed to save vault holding:', error);
-      alert('Failed to save item. Please try again.');
-      return false;
-    }
+    alert('Unable to save — your account is still loading. Please wait a moment and try again.');
+    return false;
   };
 
   const handleManualUpdate = async (item: BullionItem): Promise<boolean> => {
+    // Handle personal holding updates
+    const personalIdMatch = item.id.match(/^personal-(\d+)$/);
+    if (personalIdMatch && user?.id) {
+      try {
+        const holdingId = parseInt(personalIdMatch[1]);
+        await updatePersonalHolding(holdingId, {
+          name: item.name,
+          metal_type: item.metalType,
+          form: item.form,
+          weight_amount: item.weightAmount,
+          weight_unit: item.weightUnit,
+          purity: item.purity,
+          quantity: item.quantity,
+          purchase_price: item.purchasePrice,
+          acquired_at: item.acquiredAt,
+          mint: item.mint,
+          mintage: item.mintage,
+          sku: item.sku,
+          notes: item.notes,
+        });
+
+        // Refresh personal holdings
+        const personalRes = await getPersonalHoldings(user.id);
+        const personalItems: BullionItem[] = (personalRes.holdings || []).map(mapPersonalHolding);
+        setPersonalHoldings(personalItems);
+
+        setView('vault');
+        return true;
+      } catch (error) {
+        console.error('[Maroon] Failed to update personal holding:', error);
+        alert('Failed to update item. Please try again.');
+        return false;
+      }
+    }
+
     if (!customerId) {
       alert('Unable to save — your account is still loading. Please wait a moment and try again.');
       return false;
@@ -1071,7 +1163,18 @@ export default function App() {
              <Vault
                 inventory={inventory}
                 prices={prices}
-                onDelete={(_id: string) => { /* Vault items managed via API */ }}
+                onDelete={async (id: string) => {
+                    if (id.startsWith('personal-')) {
+                        const holdingId = parseInt(id.replace('personal-', ''));
+                        try {
+                            await deletePersonalHolding(holdingId);
+                            setPersonalHoldings(prev => prev.filter(h => h.id !== id));
+                        } catch (err) {
+                            console.error('[App] Failed to delete personal holding:', err);
+                        }
+                    }
+                    // Vault items (web-*, vault-*) are managed via API and cannot be deleted from here
+                }}
                 onEdit={(item) => {
                     setEditingItem(item);
                     setView('add');

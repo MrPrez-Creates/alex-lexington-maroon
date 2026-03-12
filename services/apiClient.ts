@@ -725,5 +725,81 @@ export async function getPublishedContent(tier?: string): Promise<any> {
   return apiFetch<any>(`/api/content${params}`);
 }
 
+// ============================
+// Personal Holdings (Self-Stored)
+// ============================
+
+export interface PersonalHoldingRecord {
+  holding_id: number;
+  maroon_user_id: string;
+  name: string;
+  metal_type: string;
+  form: string;
+  weight_amount: number;
+  weight_unit: string;
+  purity: string | null;
+  quantity: number;
+  purchase_price: number;
+  acquired_at: string;
+  mint: string | null;
+  mintage: string | null;
+  sku: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getPersonalHoldings(userId: string): Promise<{ holdings: PersonalHoldingRecord[]; count: number }> {
+  return apiFetch<{ holdings: PersonalHoldingRecord[]; count: number }>(`/api/personal-holdings/user/${userId}`);
+}
+
+export async function createPersonalHolding(userId: string, data: {
+  name: string;
+  metal_type: string;
+  form?: string;
+  weight_amount: number;
+  weight_unit?: string;
+  purity?: string;
+  quantity?: number;
+  purchase_price?: number;
+  acquired_at?: string;
+  mint?: string;
+  mintage?: string;
+  sku?: string;
+  notes?: string;
+}): Promise<{ holding: PersonalHoldingRecord; message: string }> {
+  return apiFetch<{ holding: PersonalHoldingRecord; message: string }>(`/api/personal-holdings/user/${userId}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePersonalHolding(holdingId: number, data: Partial<{
+  name: string;
+  metal_type: string;
+  form: string;
+  weight_amount: number;
+  weight_unit: string;
+  purity: string;
+  quantity: number;
+  purchase_price: number;
+  acquired_at: string;
+  mint: string;
+  mintage: string;
+  sku: string;
+  notes: string;
+}>): Promise<{ holding: PersonalHoldingRecord; message: string }> {
+  return apiFetch<{ holding: PersonalHoldingRecord; message: string }>(`/api/personal-holdings/${holdingId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deletePersonalHolding(holdingId: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/api/personal-holdings/${holdingId}`, {
+    method: 'DELETE',
+  });
+}
+
 // Export API base for debugging
 export { API_BASE };

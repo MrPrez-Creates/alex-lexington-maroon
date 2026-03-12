@@ -47,6 +47,11 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
              item.notes?.includes('In Our Storage');
   };
 
+  // Helper to identify personal (self-stored) items
+  const isPersonalItem = (item: BullionItem): boolean => {
+    return item.id.startsWith('personal-');
+  };
+
   // Helper to get stock image URL based on item details
   const getStockImage = (item: BullionItem): string | null => {
     const name = item.name.toLowerCase();
@@ -93,6 +98,8 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
     if (filterForm !== 'ALL') {
         if (filterForm === 'Stored') {
             result = result.filter(item => isStoredAtAL(item));
+        } else if (filterForm === 'Self-Stored') {
+            result = result.filter(item => isPersonalItem(item));
         } else {
             result = result.filter(item => item.form === filterForm);
         }
@@ -165,6 +172,7 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
             >
                 <option value="ALL">All Forms</option>
                 <option value="Stored">Stored (Vault)</option>
+                <option value="Self-Stored">Self-Stored</option>
                 {Object.values(AssetForm).map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             <select 
@@ -223,6 +231,13 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
                 className={`bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border ${locked ? 'border-gold-500/20' : 'border-gray-100 dark:border-navy-700'} flex justify-between items-center active:scale-[0.99] transition-transform cursor-pointer relative overflow-hidden group`}
               >
                 {locked && <div className="absolute top-0 right-0 w-2 h-2 bg-gold-500 rounded-bl-lg z-10"></div>}
+                {isPersonalItem(item) && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                      Self
+                    </span>
+                  </div>
+                )}
                 
                 <div className="flex items-center gap-4">
                   {/* Icon or Image */}
@@ -309,11 +324,15 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
            <div className={`bg-white dark:bg-navy-800 w-full max-w-sm rounded-2xl p-6 border ${isLocked ? 'border-gold-500 shadow-gold-500/20 shadow-2xl' : 'border-gray-700'} relative`}>
               <button onClick={closeDetail} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
               
-              {isLocked && (
+              {isPersonalItem(selectedItem) ? (
+                  <div className="absolute top-4 left-6 px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
+                      Self-Stored
+                  </div>
+              ) : isLocked ? (
                   <div className="absolute top-4 left-6 px-2 py-0.5 bg-gold-500 text-navy-900 text-[10px] font-bold uppercase tracking-widest rounded-sm">
                       Vaulted Asset
                   </div>
-              )}
+              ) : null}
 
               <div className="flex justify-center mb-6 mt-8">
                   {getStockImage(selectedItem) ? (
@@ -360,13 +379,21 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-6">
-                <button 
+                <button
                     onClick={() => { onEdit(selectedItem); }}
                     className="flex-1 bg-gray-100 dark:bg-navy-700 hover:bg-gray-200 dark:hover:bg-navy-600 text-navy-900 dark:text-white font-bold py-3 rounded-xl transition-colors"
                 >
                     Edit
                 </button>
-                <button
+                {isPersonalItem(selectedItem) ? (
+                  <button
+                    onClick={() => { setItemToDelete(selectedItem); }}
+                    className="flex-1 font-bold py-3 rounded-xl transition-colors border bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/30"
+                  >
+                    Delete
+                  </button>
+                ) : (
+                  <button
                     onClick={() => {
                         if (isLocked) {
                             onSell(selectedItem);
@@ -380,9 +407,10 @@ const Vault: React.FC<VaultProps> = ({ inventory, prices, onDelete, onEdit, onSe
                         ? 'bg-gold-500 hover:bg-gold-600 text-navy-900 border-gold-500'
                         : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/30'
                     }`}
-                >
+                  >
                     {isLocked ? 'Sell' : 'Remove'}
-                </button>
+                  </button>
+                )}
               </div>
            </div>
         </div>

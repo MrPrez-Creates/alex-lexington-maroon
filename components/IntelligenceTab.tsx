@@ -173,10 +173,10 @@ const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerDat
   }
 
   return (
-    <div className="flex flex-col w-full max-w-3xl mx-auto p-4 space-y-5 animate-fade-in pb-40">
+    <div className="flex flex-col w-full px-4 md:px-6 lg:px-8 mx-auto space-y-5 animate-fade-in pb-40">
 
       {/* Header */}
-      <div>
+      <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <h1
             className="text-3xl font-light text-navy-900 dark:text-white"
@@ -201,10 +201,12 @@ const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerDat
       </div>
 
       {/* Trade Scorecard Widget */}
+      <div className="max-w-md">
       <TradeScorecard
         onViewArchive={canAccess(membershipTier, 'inner_circle') ? () => setActiveFormatFilter('trade_call') : undefined}
         isGated={!canAccess(membershipTier, 'inner_circle')}
       />
+      </div>
 
       {/* Tier Filter Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
@@ -317,7 +319,7 @@ const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerDat
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredArticles.map((article, index) => {
             const accessible = canAccess(membershipTier, article.tier_required);
             const badge = formatTypeBadge(article.format_type);
