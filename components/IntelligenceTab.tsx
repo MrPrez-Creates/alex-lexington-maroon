@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ArticleView, { ArticleContent } from './ArticleView';
 import TradeScorecard from './TradeScorecard';
+import PlaybookSection from './PlaybookSection';
+import ScorecardSection from './ScorecardSection';
 import { getPublishedContent } from '../services/apiClient';
 
 // ============================================================================
@@ -10,6 +12,7 @@ import { getPublishedContent } from '../services/apiClient';
 type MembershipTier = 'public' | 'inner_circle' | 'vault_member' | 'house_client';
 type FormatFilter = 'all' | 'dispatch' | 'pulse' | 'spotlight' | 'house_intel' | 'playbook' | 'trade_call';
 type TierFilter = 'all' | 'free' | 'members';
+type IntelSubTab = 'feed' | 'playbook' | 'scorecard';
 
 interface IntelligenceTabProps {
   darkMode: boolean;
@@ -94,6 +97,7 @@ const FORMAT_FILTER_OPTIONS: { value: FormatFilter; label: string }[] = [
 const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerData }) => {
   const membershipTier: MembershipTier = customerData?.membershipTier || 'public';
 
+  const [activeSubTab, setActiveSubTab] = useState<IntelSubTab>('feed');
   const [articles, setArticles] = useState<ArticleContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,6 +203,41 @@ const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerDat
           Market analysis, trade calls, and strategic intelligence from the Alex Lexington desk.
         </p>
       </div>
+
+      {/* Sub-Tab Navigation */}
+      <div className="flex items-center gap-1 border-b border-gray-200 dark:border-navy-700 -mx-1 px-1">
+        {([
+          { id: 'feed' as IntelSubTab, label: 'Feed' },
+          { id: 'playbook' as IntelSubTab, label: 'Playbook' },
+          { id: 'scorecard' as IntelSubTab, label: 'Scorecard' },
+        ]).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            className={`
+              relative px-4 py-2.5 text-xs font-bold uppercase tracking-[0.15em] transition-colors
+              ${activeSubTab === tab.id
+                ? 'text-[#9A7B3E]'
+                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+              }
+            `}
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          >
+            {tab.label}
+            {activeSubTab === tab.id && (
+              <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-[#9A7B3E] rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-Tab Content */}
+      {activeSubTab === 'playbook' ? (
+        <PlaybookSection darkMode={darkMode} customerData={customerData} />
+      ) : activeSubTab === 'scorecard' ? (
+        <ScorecardSection darkMode={darkMode} />
+      ) : (
+      <>
 
       {/* Trade Scorecard Widget */}
       <div className="max-w-md">
@@ -443,6 +482,9 @@ const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerDat
             );
           })}
         </div>
+      )}
+
+      </>
       )}
     </div>
   );

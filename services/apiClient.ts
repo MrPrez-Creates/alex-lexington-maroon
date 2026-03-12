@@ -801,5 +801,58 @@ export async function deletePersonalHolding(holdingId: number): Promise<{ messag
   });
 }
 
+// ============================================
+// TRADE CALLS (Maverick Intelligence)
+// ============================================
+
+/**
+ * Get trade calls (public scorecard — limited fields, no thesis/entry details)
+ */
+export async function getTradeCalls(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ calls: any[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set('status', params.status);
+  if (params?.page) searchParams.set('page', params.page.toString());
+  if (params?.limit) searchParams.set('limit', params.limit.toString());
+  const query = searchParams.toString();
+  return apiFetch(`/api/trade-calls${query ? `?${query}` : ''}`);
+}
+
+/**
+ * Get trade call stats — win rate, avg win/loss, streak, confidence breakdown
+ */
+export async function getTradeCallStats(): Promise<{
+  total_calls: number;
+  open_positions: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_win_percent: number;
+  avg_loss_percent: number;
+  current_streak: { type: 'WIN' | 'LOSS' | null; count: number };
+  best_call: { date: string; pnl: number } | null;
+  worst_call: { date: string; pnl: number } | null;
+  by_confidence: Record<string, { wins: number; losses: number; total: number }>;
+}> {
+  return apiFetch('/api/trade-calls/stats');
+}
+
+/**
+ * Get full trade call archive (Inner Circle+ gated — includes thesis, entry/target/stop prices)
+ */
+export async function getTradeCallArchive(
+  customerId: string | number,
+  params?: { page?: number; limit?: number }
+): Promise<{ calls: any[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('customer_id', String(customerId));
+  if (params?.page) searchParams.set('page', params.page.toString());
+  if (params?.limit) searchParams.set('limit', params.limit.toString());
+  return apiFetch(`/api/trade-calls/archive?${searchParams.toString()}`);
+}
+
 // Export API base for debugging
 export { API_BASE };
