@@ -76,6 +76,7 @@ const CheckoutSuccess = lazy(() => import('./components/BalanceCheckout').then(m
 const KYCVerification = lazy(() => import('./components/KYCVerification'));
 const FizTradeHub = lazy(() => import('./components/FizTradeHub'));
 const CheckoutFlow = lazy(() => import('./components/CheckoutFlow'));
+const IntelligenceTab = lazy(() => import('./components/IntelligenceTab'));
 
 // Marketing pages (public, lazy-loaded)
 const MarketingLayout = lazy(() => import('./components/marketing/MarketingLayout'));
@@ -1211,6 +1212,14 @@ export default function App() {
          {view === 'admin-support' && <AdminSupport />}
          {view === 'admin-risk' && <AdminRisk prices={prices} />}
 
+         {/* Intelligence Tab — editorial content + trade calls */}
+         {view === 'intel' && (
+           <IntelligenceTab
+             darkMode={isDarkMode}
+             customerData={apiCustomer}
+           />
+         )}
+
          {/* New Checkout Flow (Option D — tiered payments) */}
          {view === 'checkout' && checkoutCart.length > 0 && (
            <div className="max-w-lg mx-auto px-4 py-6">
@@ -1291,11 +1300,11 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => setView('market')}
-                className={`flex flex-col items-center justify-center w-full h-full ${view === 'market' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
+                onClick={() => setView('intel')}
+                className={`flex flex-col items-center justify-center w-full h-full ${view === 'intel' ? 'text-gold-500' : 'text-gray-400 dark:text-gray-500'}`}
               >
-                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                  <span className="text-[10px] font-bold uppercase tracking-wide">Market</span>
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>
+                  <span className="text-[10px] font-bold uppercase tracking-wide">Intel</span>
               </button>
 
               <div className="relative -top-6">

@@ -128,7 +128,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onRegistrationFl
         setError("Unable to authenticate with Google. Domain may not be authorized.");
       } else {
         // Clean up raw auth error messages for display
-        const cleanMsg = err.message.replace(/^(Firebase|AuthApiError): /i, "").replace(/\(auth\/.*\)\.?/, "");
+        const cleanMsg = err.message.replace(/^AuthApiError: /i, "").replace(/\(auth\/.*\)\.?/, "");
         setError(cleanMsg || "Google sign-in failed.");
       }
     }

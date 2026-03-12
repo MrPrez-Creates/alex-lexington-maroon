@@ -712,5 +712,18 @@ export async function healthCheck(): Promise<{ status: string; timestamp: string
   return apiFetch('/health');
 }
 
+// ============================================
+// CONTENT / INTELLIGENCE FEED
+// ============================================
+
+/**
+ * Get published editorial content from the media platform.
+ * Filters by membership tier — API returns everything up to the requested tier.
+ */
+export async function getPublishedContent(tier?: string): Promise<any> {
+  const params = tier ? `?tier=${tier}` : '';
+  return apiFetch<any>(`/api/content${params}`);
+}
+
 // Export API base for debugging
 export { API_BASE };

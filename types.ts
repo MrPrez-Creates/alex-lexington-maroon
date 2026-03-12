@@ -77,7 +77,7 @@ export interface ChartDataPoint {
   value: number;
 }
 
-export type ViewState = 'landing' | 'dashboard' | 'vault' | 'wallet' | 'fund-account' | 'add' | 'history' | 'documents' | 'customers' | 'payment-methods' | 'market' | 'contact-support' | 'admin-support' | 'admin-risk' | 'explore' | 'checkout' | 'about' | 'how-it-works' | 'services-invest' | 'services-indulge' | 'services-secure' | 'pricing' | 'contact';
+export type ViewState = 'landing' | 'dashboard' | 'vault' | 'wallet' | 'fund-account' | 'add' | 'history' | 'documents' | 'customers' | 'payment-methods' | 'market' | 'contact-support' | 'admin-support' | 'admin-risk' | 'explore' | 'checkout' | 'intel' | 'about' | 'how-it-works' | 'services-invest' | 'services-indulge' | 'services-secure' | 'pricing' | 'contact';
 
 export const PUBLIC_VIEWS: ViewState[] = ['landing', 'about', 'how-it-works', 'services-invest', 'services-indulge', 'services-secure', 'pricing', 'contact'];
 
@@ -246,6 +246,7 @@ export interface SharedCustomer {
   pendingDeposits?: number; // Deposits in transit
   alAccountNumber?: string; // AL-XXXXXX account identifier
   lifetimeBuyTotal: number;
+  membershipTier?: 'public' | 'inner_circle' | 'vault_member' | 'house_client';
   createdAt: string;
   updatedAt: string;
 }
