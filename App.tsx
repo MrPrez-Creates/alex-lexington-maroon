@@ -1131,25 +1131,31 @@ export default function App() {
          )}
 
          {view === 'market' && (
-           <ErrorBoundary section="market">
-             <Market
-                prices={prices}
-                assets={inventory}
-                onTrade={handleMarketTrade}
-                alerts={alerts}
-                onAddAlert={(alert: PriceAlert) => setAlerts(prev => [...prev, alert])}
-                onRemoveAlert={(id: string) => setAlerts(prev => prev.filter(a => a.id !== id))}
-                selectedMetal={selectedMetal}
-                onSelectMetal={setSelectedMetal}
-                onStartChat={() => openLiveChat()}
-                onNavigate={(v) => setView(v as ViewState)}
-             />
+           <>
+             <ErrorBoundary section="market">
+               <Market
+                  prices={prices}
+                  assets={inventory}
+                  onTrade={handleMarketTrade}
+                  alerts={alerts}
+                  onAddAlert={(alert: PriceAlert) => setAlerts(prev => [...prev, alert])}
+                  onRemoveAlert={(id: string) => setAlerts(prev => prev.filter(a => a.id !== id))}
+                  selectedMetal={selectedMetal}
+                  onSelectMetal={setSelectedMetal}
+                  onStartChat={() => openLiveChat()}
+                  onNavigate={(v) => setView(v as ViewState)}
+               />
+             </ErrorBoundary>
              {/* Intelligence Feed — editorial content below market charts */}
-             <IntelligenceTab
-               darkMode={isDarkMode}
-               customerData={apiCustomer}
-             />
-           </ErrorBoundary>
+             <ErrorBoundary section="intelligence">
+               <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="w-6 h-6 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                 <IntelligenceTab
+                   darkMode={isDarkMode}
+                   customerData={apiCustomer}
+                 />
+               </Suspense>
+             </ErrorBoundary>
+           </>
          )}
 
          {view === 'explore' && (

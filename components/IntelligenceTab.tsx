@@ -109,7 +109,26 @@ const IntelligenceTab: React.FC<IntelligenceTabProps> = ({ darkMode, customerDat
 
     try {
       const data = await getPublishedContent(membershipTier);
-      setArticles(data.articles || data.data || data || []);
+      // API returns { content: [...] } — normalize to array of ArticleContent
+      const rawList = data.content || data.articles || data.data || data || [];
+      const list = Array.isArray(rawList) ? rawList : [];
+
+      // Map API field names (gated_content table) → ArticleContent interface
+      const mapped: ArticleContent[] = list.map((item: any) => ({
+        id: String(item.content_id ?? item.id ?? ''),
+        title: item.title ?? '',
+        subtitle: item.subtitle ?? item.meta_description ?? undefined,
+        format_type: item.format_type ?? 'dispatch',
+        body_html: item.body_html ?? item.content_body ?? '',
+        preview_text: item.preview_text ?? item.meta_description ?? undefined,
+        author: item.author ?? 'Alex Lexington',
+        published_at: item.published_at ?? item.publish_date ?? new Date().toISOString(),
+        tier_required: item.tier_required ?? 'public',
+        trade_calls: item.trade_calls ?? undefined,
+        tags: item.tags ?? undefined,
+      }));
+
+      setArticles(mapped);
     } catch (err) {
       console.warn('[Intelligence] API not available yet, showing empty state');
       setArticles([]);
