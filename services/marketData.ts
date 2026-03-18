@@ -1,9 +1,9 @@
 
 import { SpotPrices, MetalType, MarketHistoryRecord } from '../types';
 import { MOCK_SPOT_PRICES } from '../constants';
-// Market history uses static data only
 
 const LIVE_TICKER_URL = 'https://alex-app-live-ticker.andre-46c.workers.dev/';
+const PRICE_HISTORY_URL = 'https://daily-price-history.andre-46c.workers.dev';
 
 export interface HistoricalDataPoint {
   date: string;
@@ -14,22 +14,16 @@ export interface PriceChangeData {
   [key: string]: { change: string; trend: 'up' | 'down' };
 }
 
-// Sampled Historical Data from 1985-2026
-// Dataset condensed from full daily records to optimize client-side performance while maintaining trend accuracy.
+// Static fallback data (used when API is unavailable or for deep historical "ALL" view)
 const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
-    // --- 2026 (Current) ---
     { date: "2026-01-13", XAU: 4617.30, XAG: 88.36, XPT: 2370, XPD: 1882 },
     { date: "2026-01-02", XAU: 4520.00, XAG: 85.50, XPT: 2320, XPD: 1850 },
-
-    // --- 2025 Q4 (Bull Market Continuation) ---
     { date: "2025-12-15", XAU: 4380.00, XAG: 78.20, XPT: 2180, XPD: 1780 },
     { date: "2025-12-01", XAU: 4210.00, XAG: 72.40, XPT: 2050, XPD: 1720 },
     { date: "2025-11-15", XAU: 4050.00, XAG: 65.80, XPT: 1850, XPD: 1580 },
     { date: "2025-11-01", XAU: 3920.00, XAG: 58.50, XPT: 1620, XPD: 1420 },
     { date: "2025-10-15", XAU: 3780.00, XAG: 52.30, XPT: 1380, XPD: 1250 },
     { date: "2025-10-01", XAU: 3710.00, XAG: 46.80, XPT: 1150, XPD: 1080 },
-
-    // --- 2025 (Projected Bull Market) ---
     { date: "2025-09-10", XAU: 3630.90, XAG: 40.92, XPT: 944, XPD: 943 },
     { date: "2025-09-01", XAU: 3476.47, XAG: 40.70, XPT: 943, XPD: 960 },
     { date: "2025-08-15", XAU: 3335.39, XAG: 38.02, XPT: 938, XPD: 930 },
@@ -48,8 +42,6 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "2025-02-03", XAU: 2813.49, XAG: 31.55, XPT: 901, XPD: 955 },
     { date: "2025-01-15", XAU: 2695.82, XAG: 30.66, XPT: 948, XPD: 1003 },
     { date: "2025-01-02", XAU: 2657.16, XAG: 29.57, XPT: 958, XPD: 1208 },
-
-    // --- 2024 ---
     { date: "2024-12-31", XAU: 2623.81, XAG: 28.87, XPT: 964, XPD: 1221 },
     { date: "2024-12-16", XAU: 2652.50, XAG: 30.52, XPT: 905, XPD: 957 },
     { date: "2024-12-02", XAU: 2638.93, XAG: 30.50, XPT: 931, XPD: 1066 },
@@ -75,8 +67,6 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "2024-02-01", XAU: 2054.89, XAG: 23.15, XPT: 1057, XPD: 1739 },
     { date: "2024-01-15", XAU: 2054.49, XAG: 23.20, XPT: 984, XPD: 1692 },
     { date: "2024-01-01", XAU: 2063.80, XAG: 23.82, XPT: 1004, XPD: 1859 },
-
-    // --- 2023 ---
     { date: "2023-12-01", XAU: 2070.90, XAG: 25.42, XPT: 993, XPD: 1888 },
     { date: "2023-11-01", XAU: 1982.15, XAG: 22.99, XPT: 912, XPD: 2253 },
     { date: "2023-10-02", XAU: 1827.40, XAG: 21.07, XPT: 855, XPD: 2009 },
@@ -89,8 +79,6 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "2023-03-01", XAU: 1836.81, XAG: 21.00, XPT: 1003, XPD: 2328 },
     { date: "2023-02-01", XAU: 1950.42, XAG: 23.98, XPT: 959, XPD: 1973 },
     { date: "2023-01-02", XAU: 1823.69, XAG: 23.99, XPT: 978, XPD: 1798 },
-
-    // --- 2022 ---
     { date: "2022-12-01", XAU: 1802.89, XAG: 22.77, XPT: 1023, XPD: 1963 },
     { date: "2022-10-03", XAU: 1699.22, XAG: 20.76, XPT: 991, XPD: 2392 },
     { date: "2022-08-01", XAU: 1771.73, XAG: 20.34, XPT: 1090, XPD: 2634 },
@@ -98,25 +86,19 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "2022-04-01", XAU: 1924.30, XAG: 24.61, XPT: 1266, XPD: 2370 },
     { date: "2022-02-01", XAU: 1800.65, XAG: 22.63, XPT: 1031, XPD: 2323 },
     { date: "2022-01-03", XAU: 1800.85, XAG: 22.86, XPT: 935, XPD: 2338 },
-
-    // --- 2021 ---
     { date: "2021-11-01", XAU: 1793.05, XAG: 24.02, XPT: 975, XPD: 2343 },
     { date: "2021-09-01", XAU: 1813.66, XAG: 24.17, XPT: 833, XPD: 1957 },
     { date: "2021-07-01", XAU: 1776.6, XAG: 26.01, XPT: 768, XPD: 1830 },
     { date: "2021-05-03", XAU: 1792.36, XAG: 26.87, XPT: 870, XPD: 2489 },
     { date: "2021-03-01", XAU: 1723.84, XAG: 26.51, XPT: 983, XPD: 2016 },
     { date: "2021-01-01", XAU: 1898.10, XAG: 26.36, XPT: 947, XPD: 1797 },
-
-    // --- 2020 ---
     { date: "2020-11-02", XAU: 1895.10, XAG: 24.04, XPT: 941, XPD: 1525 },
     { date: "2020-09-01", XAU: 1970.49, XAG: 28.17, XPT: 843, XPD: 1552 },
-    { date: "2020-08-06", XAU: 2063.81, XAG: 28.94, XPT: 827, XPD: 1346 }, // 2020 High
+    { date: "2020-08-06", XAU: 2063.81, XAG: 28.94, XPT: 827, XPD: 1346 },
     { date: "2020-07-01", XAU: 1770.32, XAG: 17.94, XPT: 889, XPD: 1431 },
     { date: "2020-05-01", XAU: 1700.41, XAG: 14.94, XPT: 830, XPD: 1482 },
-    { date: "2020-03-16", XAU: 1514.61, XAG: 12.90, XPT: 823, XPD: 1313 }, // 2020 Low
+    { date: "2020-03-16", XAU: 1514.61, XAG: 12.90, XPT: 823, XPD: 1313 },
     { date: "2020-01-02", XAU: 1528.94, XAG: 18.01, XPT: 835, XPD: 1086 },
-
-    // --- Yearly Samples for Historical Context ---
     { date: "2019-01-02", XAU: 1284.77, XAG: 15.52, XPT: 911, XPD: 943 },
     { date: "2018-01-02", XAU: 1318.14, XAG: 17.19, XPT: 1036, XPD: 691 },
     { date: "2017-01-03", XAU: 1158.91, XAG: 16.29, XPT: 952, XPD: 589 },
@@ -125,11 +107,11 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "2014-01-02", XAU: 1224.89, XAG: 20.02, XPT: 1394, XPD: 586 },
     { date: "2013-01-02", XAU: 1686.75, XAG: 30.99, XPT: 1773, XPD: 792 },
     { date: "2012-01-03", XAU: 1604.14, XAG: 29.62, XPT: 1508, XPD: 433 },
-    { date: "2011-09-06", XAU: 1900.49, XAG: 42.92, XPT: 1533, XPD: 430 }, // 2011 Peak
+    { date: "2011-09-06", XAU: 1900.49, XAG: 42.92, XPT: 1533, XPD: 430 },
     { date: "2011-01-03", XAU: 1414.30, XAG: 30.69, XPT: 1206, XPD: 242 },
     { date: "2010-01-04", XAU: 1120.40, XAG: 17.55, XPT: 1974, XPD: 421 },
     { date: "2009-01-02", XAU: 876.55, XAG: 11.57, XPT: 1302, XPD: 357.9 },
-    { date: "2008-03-17", XAU: 1002.7, XAG: 20.17, XPT: 1242, XPD: 320 }, // 2008 Peak
+    { date: "2008-03-17", XAU: 1002.7, XAG: 20.17, XPT: 1242, XPD: 320 },
     { date: "2008-01-02", XAU: 857.2, XAG: 15.25, XPT: 1170, XPD: 376 },
     { date: "2007-01-03", XAU: 627.7, XAG: 12.56, XPT: 861.5, XPD: 198 },
     { date: "2006-01-03", XAU: 533.6, XAG: 9.18, XPT: 908, XPD: 290 },
@@ -151,14 +133,18 @@ const HISTORICAL_DATA_SOURCE: MarketHistoryRecord[] = [
     { date: "1990-01-02", XAU: 399.45, XAG: 5.19, XPT: 0, XPD: 0 },
     { date: "1989-01-03", XAU: 410.28, XAG: 5.89, XPT: 0, XPD: 0 },
     { date: "1988-01-04", XAU: 480.76, XAG: 6.47, XPT: 0, XPD: 0 },
-    { date: "1987-12-14", XAU: 498.25, XAG: 6.99, XPT: 0, XPD: 0 }, // 87 High
+    { date: "1987-12-14", XAU: 498.25, XAG: 6.99, XPT: 0, XPD: 0 },
     { date: "1987-01-02", XAU: 403.1, XAG: 5.45, XPT: 0, XPD: 0 },
     { date: "1986-01-02", XAU: 326.5, XAG: 5.73, XPT: 0, XPD: 0 },
     { date: "1985-01-02", XAU: 305.5, XAG: 6.15, XPT: 0, XPD: 0 }
 ];
 
-// In-memory cache for daily price updates during session
+// In-memory cache for session updates (live ticker prices captured this session)
 let sessionHistory: MarketHistoryRecord[] = [];
+
+// Cache for API-fetched history (avoid re-fetching on every time range switch)
+let apiHistoryCache: { data: MarketHistoryRecord[]; fetchedAt: number } | null = null;
+const API_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const updateSessionHistory = (prices: SpotPrices) => {
     const today = new Date().toISOString().split('T')[0];
@@ -189,7 +175,6 @@ export const fetchLiveSpotPrices = async (): Promise<SpotPrices> => {
     if (!response.ok) throw new Error('Failed to fetch live prices');
     const data = await response.json();
 
-    // Initialize with fallback
     const formattedPrices: SpotPrices = { ...MOCK_SPOT_PRICES };
     const changes: PriceChangeData = {};
 
@@ -200,11 +185,9 @@ export const fetchLiveSpotPrices = async (): Promise<SpotPrices> => {
             const price = parseFloat(priceStr);
 
             if (key && !isNaN(price)) {
-                // Normalize keys to lowercase to match MetalType enum
                 const normalizedKey = key.toLowerCase();
                 if (Object.values(MetalType).includes(normalizedKey as MetalType)) {
                     formattedPrices[normalizedKey] = price;
-                    // Capture change/trend data from the API response
                     if (item.change && item.trend) {
                         changes[normalizedKey] = {
                             change: item.change,
@@ -216,10 +199,7 @@ export const fetchLiveSpotPrices = async (): Promise<SpotPrices> => {
         });
     }
 
-    // Store latest change data for the ticker
     _latestPriceChanges = changes;
-
-    // Update session cache with latest prices
     updateSessionHistory(formattedPrices);
 
     return formattedPrices;
@@ -229,84 +209,122 @@ export const fetchLiveSpotPrices = async (): Promise<SpotPrices> => {
   }
 };
 
+/**
+ * Fetch price history from the daily-price-history worker (KV-backed).
+ * Falls back to static HISTORICAL_DATA_SOURCE if API is unavailable.
+ */
+async function fetchApiHistory(): Promise<MarketHistoryRecord[]> {
+  // Return cached if fresh
+  if (apiHistoryCache && (Date.now() - apiHistoryCache.fetchedAt) < API_CACHE_TTL) {
+    return apiHistoryCache.data;
+  }
+
+  try {
+    const response = await fetch(`${PRICE_HISTORY_URL}/history?range=ALL`);
+    if (!response.ok) throw new Error(`History API error: ${response.status}`);
+    const data: MarketHistoryRecord[] = await response.json();
+
+    if (Array.isArray(data) && data.length > 0) {
+      apiHistoryCache = { data, fetchedAt: Date.now() };
+      return data;
+    }
+  } catch (error) {
+    console.warn('Failed to fetch price history from worker, using static fallback:', error);
+  }
+
+  // Fallback to static data
+  return HISTORICAL_DATA_SOURCE;
+}
+
+/**
+ * Calculate the cutoff date string for a given time range.
+ */
+function getDateCutoff(timeframe: string): string | null {
+  const now = new Date();
+  let cutoff: Date | null = null;
+
+  switch (timeframe) {
+    case '1D': cutoff = new Date(now.getTime() - 2 * 86400000); break;
+    case '1W': cutoff = new Date(now.getTime() - 7 * 86400000); break;
+    case '1M': cutoff = new Date(now.getTime() - 30 * 86400000); break;
+    case '3M': cutoff = new Date(now.getTime() - 90 * 86400000); break;
+    case '1Y': cutoff = new Date(now.getTime() - 365 * 86400000); break;
+    case 'ALL': return null;
+    default: cutoff = new Date(now.getTime() - 30 * 86400000);
+  }
+
+  return cutoff.toISOString().split('T')[0];
+}
+
 export const fetchChartHistory = async (metal: string, timeframe: string): Promise<HistoricalDataPoint[]> => {
-  // Normalize metal name to lowercase for case-insensitive matching
   const metalLower = metal.toLowerCase();
 
-  let dataKey = 'XAU';
+  let dataKey: keyof MarketHistoryRecord = 'XAU';
   if (metalLower === 'silver') dataKey = 'XAG';
   if (metalLower === 'platinum') dataKey = 'XPT';
   if (metalLower === 'palladium') dataKey = 'XPD';
 
+  // 1. Fetch from API (or cached/fallback)
+  const apiData = await fetchApiHistory();
+
+  // 2. Merge: API data + static fallback + session updates (API wins on date collisions)
   const combinedMap = new Map<string, MarketHistoryRecord>();
-  
-  // 1. Load static historical set
+
+  // Load static first (lowest priority)
   HISTORICAL_DATA_SOURCE.forEach(item => {
-    if (item && item.date) {
-        combinedMap.set(item.date, item);
-    }
+    if (item?.date) combinedMap.set(item.date, item);
   });
 
-  // 2. Overlay session updates (live prices captured during this session)
+  // API data overwrites static
+  apiData.forEach(item => {
+    if (item?.date) combinedMap.set(item.date, item);
+  });
+
+  // Session updates overwrite everything (latest live prices)
   sessionHistory.forEach(item => {
-    if (item && item.date) {
-        combinedMap.set(item.date, item);
-    }
+    if (item?.date) combinedMap.set(item.date, item);
   });
 
-  const combinedArray = Array.from(combinedMap.values()).sort((a, b) => {
-    // Robust date parsing with safety checks
-    if (!a.date || !b.date) return 0;
-    try {
-        const dateA = new Date(a.date.replace(/-/g, '/')).getTime(); // Replace - with / for broader compatibility
-        const dateB = new Date(b.date.replace(/-/g, '/')).getTime();
-        if (isNaN(dateA) || isNaN(dateB)) return 0;
-        return dateA - dateB;
-    } catch (e) {
-        return 0;
-    }
-  });
+  // 3. Sort by date ascending
+  const allRecords = Array.from(combinedMap.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
 
-  // Filter out bad data points and ensure value is a valid number
-  const allData = combinedArray.map(item => ({
+  // 4. Filter by date range (not count-based)
+  const cutoffStr = getDateCutoff(timeframe);
+
+  let filtered = allRecords;
+  if (cutoffStr) {
+    filtered = allRecords.filter(r => r.date >= cutoffStr);
+  }
+
+  // 5. Extract the metal's price as chart data points
+  const result: HistoricalDataPoint[] = filtered
+    .map(item => ({
       date: item.date,
-      value: parseFloat(String(item[dataKey as keyof typeof item] || 0))
-  })).filter(d => !isNaN(d.value) && d.value > 0);
+      value: parseFloat(String(item[dataKey] || 0))
+    }))
+    .filter(d => !isNaN(d.value) && d.value > 0);
 
-  const totalPoints = allData.length;
-  let sliceCount = totalPoints;
-
-  switch (timeframe) {
-      case '1D': sliceCount = 5; break; // Show last few data points
-      case '1W': sliceCount = 7; break;
-      case '1M': sliceCount = 30; break;
-      case '3M': sliceCount = 90; break;
-      case '1Y': sliceCount = 365; break; // Approx
-      case 'ALL': sliceCount = totalPoints; break;
-      default: sliceCount = 30;
+  // 6. For ALL with large datasets, sample to keep chart responsive
+  if (timeframe === 'ALL' && result.length > 500) {
+    const step = Math.ceil(result.length / 500);
+    const sampled = result.filter((_, i) => i % step === 0);
+    // Always include the latest point
+    if (sampled[sampled.length - 1]?.date !== result[result.length - 1]?.date) {
+      sampled.push(result[result.length - 1]);
+    }
+    return sampled;
   }
 
-  // Optimize slicing for large datasets if 'ALL' is selected to prevent chart lag
-  if (timeframe === 'ALL' && totalPoints > 500) {
-      // Return every nth point to keep chart responsive
-      const step = Math.ceil(totalPoints / 500);
-      return allData.filter((_, index) => index % step === 0);
-  }
-
-  const actualSlice = Math.min(sliceCount, totalPoints);
-  const startIndex = Math.max(0, totalPoints - actualSlice);
-  
-  let result = allData.slice(startIndex);
-  
-  // CRITICAL FIX: Ensure chart always has at least 2 points to render a line, avoiding crashes
+  // 7. Ensure chart always has at least 2 points
   if (result.length < 2) {
-      const fallbackValue = MOCK_SPOT_PRICES[metal.toLowerCase() as keyof typeof MOCK_SPOT_PRICES] || 0;
-      // Generate a tiny variance so line isn't perfectly flat/invisible
-      result = [
-          { date: new Date(Date.now() - 86400000).toISOString(), value: fallbackValue * 0.99 },
-          { date: new Date().toISOString(), value: fallbackValue }
-      ];
+    const fallbackValue = MOCK_SPOT_PRICES[metalLower as keyof typeof MOCK_SPOT_PRICES] || 0;
+    return [
+      { date: new Date(Date.now() - 86400000).toISOString().split('T')[0], value: fallbackValue * 0.99 },
+      { date: new Date().toISOString().split('T')[0], value: fallbackValue }
+    ];
   }
-  
+
   return result;
 };
