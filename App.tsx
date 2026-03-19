@@ -121,10 +121,33 @@ export default function App() {
     return [...localInventory, ...uniqueApiHoldings, ...personalHoldings];
   }, [localInventory, apiHoldings, personalHoldings]);
   
-  // UI State — check hash for initial public page view
+  // Path → ViewState map for SEO-friendly marketing URLs
+  const MARKETING_PATH_MAP: Record<string, ViewState> = {
+    '/about': 'about',
+    '/how-it-works': 'how-it-works',
+    '/services/invest': 'services-invest',
+    '/services/indulge': 'services-indulge',
+    '/services/secure': 'services-secure',
+    '/pricing': 'pricing',
+    '/contact': 'contact',
+  };
+  const VIEW_TO_PATH: Record<string, string> = Object.fromEntries(
+    Object.entries(MARKETING_PATH_MAP).map(([path, view]) => [view, path])
+  );
+
+  // UI State — check pathname first (SEO), then hash (legacy), then default
   const [view, setView] = useState<ViewState>(() => {
+    // 1. Path-based marketing routes (SEO-friendly)
+    const pathView = MARKETING_PATH_MAP[window.location.pathname];
+    if (pathView) return pathView;
+    // 2. Legacy hash support (keeps old bookmarks working)
     const hash = window.location.hash.replace('#', '') as ViewState;
-    if (hash && PUBLIC_VIEWS.includes(hash)) return hash;
+    if (hash && PUBLIC_VIEWS.includes(hash)) {
+      // Redirect hash URL to clean path
+      const cleanPath = VIEW_TO_PATH[hash];
+      if (cleanPath) window.history.replaceState(null, '', cleanPath);
+      return hash;
+    }
     return 'landing';
   });
 
@@ -143,27 +166,45 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
 
-  // Hash ↔ view sync for public marketing pages (enables direct-linkable URLs)
+  // URL ↔ view sync — use pushState for clean paths (SEO), preserve hash for auth
   useEffect(() => {
-    if (PUBLIC_VIEWS.includes(view) && view !== 'landing') {
-      window.location.hash = view;
+    const cleanPath = VIEW_TO_PATH[view];
+    if (cleanPath) {
+      // Marketing page — use clean path URL
+      if (window.location.pathname !== cleanPath) {
+        window.history.pushState(null, '', cleanPath);
+      }
     } else if (view === 'landing') {
       // Don't strip hash if it contains Supabase auth tokens (implicit OAuth callback).
-      // Supabase's detectSessionInUrl reads #access_token from the hash asynchronously.
-      // Stripping it here before Supabase reads it kills the Google sign-in session.
       const hash = window.location.hash;
       const isAuthCallback = hash.includes('access_token=') || hash.includes('error=') || hash.includes('refresh_token=');
-      if (hash && !isAuthCallback) {
-        history.replaceState(null, '', window.location.pathname + window.location.search);
+      if ((hash || window.location.pathname !== '/') && !isAuthCallback) {
+        history.replaceState(null, '', '/');
       }
     }
   }, [view]);
 
+  // Browser back/forward support for path-based marketing pages
+  useEffect(() => {
+    const onPopState = () => {
+      const pathView = MARKETING_PATH_MAP[window.location.pathname];
+      if (pathView) setView(pathView);
+      else if (window.location.pathname === '/') setView('landing');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Legacy hash support (old bookmarks)
   useEffect(() => {
     const onHashChange = () => {
       const hash = window.location.hash.replace('#', '') as ViewState;
-      if (hash && PUBLIC_VIEWS.includes(hash)) setView(hash);
-      else if (!window.location.hash) setView('landing');
+      if (hash && PUBLIC_VIEWS.includes(hash)) {
+        // Redirect hash to clean path
+        const cleanPath = VIEW_TO_PATH[hash];
+        if (cleanPath) window.history.replaceState(null, '', cleanPath);
+        setView(hash);
+      } else if (!window.location.hash) setView('landing');
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);

@@ -15,7 +15,18 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   ogImage = 'https://maroon.alexlexington.com/og-image.png',
 }) => {
   const fullTitle = `${title} | Maroon by Alex Lexington`;
-  const url = `https://maroon.alexlexington.com${path ? `/#${path}` : ''}`;
+  // Clean path URLs for SEO (no hash fragments)
+  const pathMap: Record<string, string> = {
+    'about': '/about',
+    'how-it-works': '/how-it-works',
+    'services-invest': '/services/invest',
+    'services-indulge': '/services/indulge',
+    'services-secure': '/services/secure',
+    'pricing': '/pricing',
+    'contact': '/contact',
+  };
+  const cleanPath = path ? (pathMap[path] || `/${path}`) : '';
+  const url = `https://maroon.alexlexington.com${cleanPath}`;
 
   return (
     <Helmet>

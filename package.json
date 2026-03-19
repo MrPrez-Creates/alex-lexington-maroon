@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/generate-marketing-html.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "vite preview --port 8080 --host"
