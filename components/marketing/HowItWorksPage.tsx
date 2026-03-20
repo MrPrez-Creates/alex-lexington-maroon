@@ -12,7 +12,7 @@ const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigate, onSignIn })
     <>
       <SEOHead
         title="How It Works"
-        description="Learn how Maroon by Alex Lexington works — create an account, fund your wallet, buy precious metals at live spot prices, store in our segregated vault, and track your portfolio."
+        description="Learn how Maroon by Alex Lexington works — create an account, fund your wallet, buy precious metals at live spot prices, store in our segregated vault, and track the value of your entire collection."
         path="how-it-works"
       />
 
@@ -86,7 +86,7 @@ const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigate, onSignIn })
               {
                 step: 5,
                 title: 'Track & Trade',
-                desc: 'Real-time portfolio with per-metal breakdown — Au, Ag, Pt, Pd. Watch your holdings grow. Sell back anytime at competitive spot-based pricing, credited directly to your wallet.',
+                desc: 'Real-time portfolio with per-metal breakdown — Au, Ag, Pt, Pd. Track the value of metals in our vault and coins, bullion, or jewelry you keep at home. Sell back anytime at competitive spot-based pricing.',
                 icon: (
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />

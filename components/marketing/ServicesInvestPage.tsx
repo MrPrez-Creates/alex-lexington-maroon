@@ -162,7 +162,7 @@ const ServicesInvestPage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
             <span className="italic" style={{ color: '#D4B77A' }}>Precious Metals</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Live pricing. Real execution. 146+ products across four metals. Powered by FizTrade and backed by a 4th-generation dealer who's been in this market since 1976.
+            Live pricing. Real execution. 146+ products across four metals. Powered by FizTrade and backed by a 3rd-generation dealer with roots in New York's Diamond District since 1977.
           </p>
         </div>
       </section>

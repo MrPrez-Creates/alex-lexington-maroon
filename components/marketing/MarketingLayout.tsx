@@ -223,7 +223,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children, onNavigate,
                 </div>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Your wealth, refined. Buy, vault, and trade precious metals with a 4th-generation Atlanta dealer.
+                Your wealth, refined. Buy, vault, and trade precious metals with a 3rd-generation dealer. Est. 1977.
               </p>
               <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-4">
                 <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-4 opacity-50 hover:opacity-80 transition-opacity" />

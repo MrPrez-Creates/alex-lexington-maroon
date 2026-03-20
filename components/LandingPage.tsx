@@ -154,7 +154,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
     >
       <SEOHead
         title="Your Wealth, Refined"
-        description="Maroon by Alex Lexington — Buy, vault, and trade precious metals online. 4th-generation Atlanta dealer since 1976. Segregated vault storage, live pricing, AI concierge."
+        description="Maroon by Alex Lexington — Buy, vault, and trade precious metals online. 3rd-generation dealer since 1977. Segregated vault storage, live pricing, portfolio tracking, AI concierge."
       />
 
       {/* ═══ LIVE TICKER ═══ */}
@@ -404,7 +404,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
             }}
           >
             Track your precious metals portfolio in real time, store securely in our vault,
-            and build wealth automatically — all from one place. Powered by four generations of trust.
+            and build wealth automatically — all from one place. Track the value of coins, bullion, and jewelry you keep at home or in our vault. Powered by three generations of trust since 1977.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <button
@@ -450,8 +450,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
       {/* ═══ TRUST BAR ═══ */}
       <div className="flex justify-center flex-wrap" style={{ gap: '48px', padding: '40px clamp(24px, 4vw, 48px)' }}>
         {[
-          { value: '1976', label: 'Established' },
-          { value: '4th Gen', label: 'Family Owned' },
+          { value: '1977', label: 'Established' },
+          { value: '3rd Gen', label: 'Family Owned' },
           { value: 'Atlanta', label: 'Headquartered' },
           { value: 'Insured', label: 'Vault Storage' },
         ].map((item, i, arr) => (
@@ -530,7 +530,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
             {
               icon: '📊',
               title: 'Live Portfolio Tracking',
-              desc: 'See your gold, silver, platinum, and palladium holdings valued in real time against live spot prices. Track performance, allocation, and total value at a glance.',
+              desc: 'Track the value of your entire collection — metals in our vault, coins and bullion at home, even jewelry. See gold, silver, platinum, and palladium valued in real time against live spot prices.',
               tag: 'Available Now',
               tagStyle: 'live',
             },
@@ -639,9 +639,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
               <em style={{ fontStyle: 'italic', color: '#D4B77A' }}>One Dashboard.</em>
             </h2>
             <p style={{ color: '#D9D8D6', fontSize: '16px', lineHeight: 1.7, marginBottom: '32px' }}>
-              Whether you hold one ounce of gold or a diversified metals portfolio,
+              Whether you hold one ounce of gold or a diversified metals portfolio — in our vault or at home —
               Maroon gives you instant clarity on what you own, what it's worth,
-              and how it's performing.
+              and how it's performing. Track coins, bullion, and jewelry all in one place.
             </p>
             <div className="flex flex-col" style={{ gap: '16px', marginBottom: '36px' }}>
               {[
@@ -1355,7 +1355,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
                   Alex Lexington
                 </div>
                 <p style={{ fontSize: '13px', color: '#A9A89F', lineHeight: 1.6 }}>
-                  Your wealth, refined. Buy, vault, and trade precious metals with a 4th-generation Atlanta dealer.
+                  Your wealth, refined. Buy, vault, and trade precious metals with a 3rd-generation dealer. Est. 1977.
                 </p>
                 <a href="https://alexlexington.com" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '12px' }}>
                   <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" style={{ height: '14px', opacity: 0.5 }} className="hover:opacity-80 transition-opacity" />
@@ -1418,7 +1418,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onActivateAI, onN
               <strong style={{ color: '#BD9A5F', fontWeight: 400 }}>Alex Lexington</strong> — Precious Metals & Fine Jewelry
             </div>
             <div style={{ fontSize: '12px', color: '#A9A89F', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Est. 1976 &bull; Atlanta, Georgia
+              Est. 1977 &bull; Atlanta, Georgia
             </div>
           </div>
         )}

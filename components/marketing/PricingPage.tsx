@@ -134,7 +134,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
             <span className="italic" style={{ color: '#D4B77A' }}>No Surprises.</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Transparent pricing is how we've earned trust for four generations. What you see is what you pay — from trading margins to vault storage.
+            Transparent pricing is how we've earned trust since 1977. What you see is what you pay — from trading margins to vault storage.
           </p>
         </div>
       </section>

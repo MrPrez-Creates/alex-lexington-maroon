@@ -54,7 +54,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
                   Even when banks offered boxes, they were never designed for precious metals. No insurance on contents. No digital inventory. No metals expertise. No real-time value tracking. Just a steel drawer in a basement.
                 </p>
                 <p>
-                  <em className="text-white">Alex Lexington was built for exactly this moment.</em> Nearly fifty years in precious metals, combined with modern custody infrastructure, creates a vault storage experience that banks never offered — and now never will.
+                  <em className="text-white">Alex Lexington was built for exactly this moment.</em> Since 1977, three generations in precious metals — combined with modern custody infrastructure — creates a vault storage experience that banks never offered and now never will.
                 </p>
               </div>
             </div>
@@ -321,7 +321,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
               </h2>
               <div className="space-y-4 text-gray-300 leading-relaxed">
                 <p>
-                  Your metals are held in our secure vault facility in Atlanta, Georgia — the same city where Alex Lexington has operated since 1976. Professional custody, modern security, and decades of precious metals expertise under one roof.
+                  Your metals are held in our secure vault facility in Atlanta, Georgia — where Alex Lexington has operated since relocating from New York in 2010. Professional custody, modern security, and three generations of precious metals expertise under one roof.
                 </p>
                 <p>
                   For large holdings or overflow capacity, we partner with IDS (International Depository Services) and CNT Depository — among the largest and most respected precious metals depositories in the United States.

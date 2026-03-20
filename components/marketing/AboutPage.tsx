@@ -12,7 +12,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onSignIn }) => {
     <>
       <SEOHead
         title="About Us"
-        description="Alex Lexington is a 4th-generation precious metals dealer and fine jeweler in Atlanta, GA. Since 1976, we've helped families invest, indulge, and secure their wealth."
+        description="Alex Lexington is a 3rd-generation precious metals and fine jewelry firm. Founded in 1977 in New York's Diamond District, now serving Atlanta and the Southeast. Invest, Indulge, and Secure your wealth."
         path="about"
       />
 
@@ -26,13 +26,13 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onSignIn }) => {
               <img src="/logos/alex-lexington-white.png" alt="Alex Lexington" className="h-6 sm:h-8 opacity-70 hover:opacity-100 transition-opacity" />
             </a>
           </div>
-          <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">Est. 1976 &middot; Atlanta, Georgia</span>
+          <span className="inline-block text-[11px] font-bold tracking-[0.25em] text-gold-500 uppercase mb-4">Est. 1977 &middot; New York Diamond District</span>
           <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-light text-white leading-tight mb-6">
-            Four Generations<br />
+            Three Generations<br />
             <span className="italic" style={{ color: '#D4B77A' }}>of Trust</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            What started as a small coin shop in Atlanta has grown into one of the Southeast's most trusted precious metals firms. For nearly fifty years, Alex Lexington has helped families build, protect, and pass on real wealth.
+            What started in New York's Diamond District in 1977 has grown into one of the Southeast's most trusted precious metals and fine jewelry firms. Three generations of the Dawkins family have helped clients build, protect, and pass on real wealth.
           </p>
         </div>
       </section>
@@ -44,15 +44,15 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onSignIn }) => {
             <div>
               <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500 uppercase">Our Story</span>
               <h2 className="font-serif text-3xl sm:text-4xl font-light text-white mt-3 mb-6">
-                From a Coin Shop to a<br />
-                <span className="italic" style={{ color: '#D4B77A' }}>Precious Metals Institution</span>
+                From the Diamond District to<br />
+                <span className="italic" style={{ color: '#D4B77A' }}>the Southeast's Premier Firm</span>
               </h2>
               <div className="space-y-4 text-gray-300 leading-relaxed">
                 <p>
-                  In 1976, our family opened a modest coin and bullion shop on Chamblee Dunwoody Road in Atlanta. The mission was simple: offer honest pricing, expert knowledge, and a handshake you could trust.
+                  In 1977, Easton Dawkins founded the business in New York's Diamond District — the epicenter of the precious metals and jewelry trade. The mission was simple: offer honest pricing, expert knowledge, and a handshake you could trust.
                 </p>
                 <p>
-                  Four generations later, that mission hasn't changed — but our capabilities have. Alex Lexington now serves clients across the Southeast with precious metals trading, fine jewelry, and secure vault storage, all powered by technology that makes real asset ownership accessible to everyone.
+                  In 2010, the family relocated to Atlanta as Atlanta Gold &amp; Silver, and rebranded as Alex Lexington in 2018 — named after the fourth-generation children. Three generations later, that founding mission hasn't changed — but our capabilities have. Alex Lexington now serves clients across the Southeast with precious metals trading, fine jewelry, and secure vault storage, all powered by technology that makes real asset ownership accessible to everyone.
                 </p>
                 <p>
                   We've watched gold move from $130 an ounce to over $2,800. We've served families through recessions, booms, and generational wealth transfers. Through it all, one principle holds: <em className="text-white">your wealth deserves the same care we'd give our own.</em>
@@ -62,9 +62,9 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onSignIn }) => {
             {/* Timeline */}
             <div className="space-y-6">
               {[
-                { year: '1976', title: 'The Beginning', desc: 'Founded as a coin shop in Chamblee, GA. Gold at $130/oz.' },
-                { year: '1990s', title: 'Growing Reputation', desc: 'Expanded into bullion trading and wholesale services across the Southeast.' },
-                { year: '2010s', title: 'Fine Jewelry', desc: 'Added INDULGE — custom jewelry design and estate pieces alongside metals.' },
+                { year: '1977', title: 'The Beginning', desc: 'Founded by Easton Dawkins in New York\'s Diamond District. Gold at $148/oz.' },
+                { year: '2010', title: 'Atlanta Roots', desc: 'Relocated to Atlanta as Atlanta Gold & Silver — serving the Southeast\'s growing precious metals market.' },
+                { year: '2018', title: 'Alex Lexington', desc: 'Rebranded and expanded. Named after the fourth-generation children. Added INDULGE — fine jewelry and custom design.' },
                 { year: '2024', title: 'Digital Transformation', desc: 'Launched Maroon — bringing portfolio management, live pricing, and vault access online.' },
                 { year: '2025', title: 'SECURE Vault Storage', desc: 'As banks exit safe deposit boxes, Alex Lexington opens segregated vault storage to clients nationwide.' },
               ].map((item, i) => (
@@ -163,10 +163,10 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onSignIn }) => {
             Why <span className="italic" style={{ color: '#D4B77A' }}>Maroon?</span>
           </h2>
           <p className="text-lg text-gray-300 leading-relaxed max-w-2xl mx-auto mb-8">
-            Maroon is the digital evolution of everything Alex Lexington has built over four generations. Buy metals at live spot prices. Store them in our segregated vault. Track your portfolio in real time. Sell back whenever you're ready. All from your phone.
+            Maroon is the digital evolution of everything Alex Lexington has built since 1977. Buy metals at live spot prices. Store them in our segregated vault. Track your portfolio in real time — even metals you keep at home. Sell back whenever you're ready. All from your phone.
           </p>
           <p className="text-base text-gray-400 max-w-xl mx-auto mb-10">
-            No blockchain complexity. No crypto speculation. Just straightforward precious metals ownership — backed by a family that's been doing this since 1976.
+            No blockchain complexity. No crypto speculation. Just straightforward precious metals ownership — backed by a family that's been doing this since 1977.
           </p>
           <button
             onClick={onSignIn}

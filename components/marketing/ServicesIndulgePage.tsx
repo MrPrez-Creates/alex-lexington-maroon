@@ -94,7 +94,7 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
             <span className="italic" style={{ color: '#D4B77A' }}>with Purpose</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Four generations of jewelers. Custom design, estate pieces, and engagement rings crafted by hand in the USA. From initial sketch to finished piece in as few as five days.
+            Three generations of jewelers, rooted in New York's Diamond District since 1977. Custom design, estate pieces, and engagement rings crafted by hand in the USA. From initial sketch to finished piece in as few as five days.
           </p>
         </div>
       </section>
@@ -182,7 +182,7 @@ const ServicesIndulgePage: React.FC<PageProps> = ({ onNavigate, onSignIn }) => {
               </h2>
               <div className="space-y-4 text-gray-300 leading-relaxed">
                 <p>
-                  Four generations in the jewelry business means relationships that run deep — from New York's Diamond District to master craftsmen, stone cutters, and mounting houses across the country.
+                  Three generations in the jewelry business — starting in New York's Diamond District in 1977 — means relationships that run deep. From master craftsmen and stone cutters to mounting houses across the country.
                 </p>
                 <p>
                   These connections give you access to the same quality, selection, and pricing that the industry's top dealers rely on — with the personal attention of a family jeweler who knows your name.
