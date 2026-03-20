@@ -11,11 +11,30 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const vaultTiers = [
-    { price: 100, label: '$100', period: '/year', description: 'For starting collections', features: ['Segregated storage', 'Digital vault access', 'Annual billing'] },
-    { price: 250, label: '$250', period: '/year', description: 'Growing portfolios', features: ['Segregated storage', 'Digital vault access', 'Annual billing'] },
-    { price: 500, label: '$500', period: '/year', description: 'Established investors', popular: true, features: ['Segregated storage', 'Digital vault access', 'Annual billing'] },
-    { price: 1000, label: '$1,000', period: '/year', description: 'Serious collectors', features: ['Segregated storage', 'Digital vault access', 'Annual billing'] },
-    { price: 1800, label: '$1,800', period: '/year', description: 'Premium holdings', features: ['Segregated storage', 'Digital vault access', 'Annual billing'] },
+    {
+      rate: '1.0%',
+      range: 'Up to $50K',
+      description: 'Starting & growing collections',
+      example: '$10K stored = $100/yr',
+      popular: false,
+      features: ['Segregated storage', 'Digital vault access', 'Annual or monthly billing'],
+    },
+    {
+      rate: '0.75%',
+      range: '$50K \u2013 $250K',
+      description: 'Established investors',
+      example: '$100K stored = $750/yr',
+      popular: true,
+      features: ['Segregated storage', 'Digital vault access', 'Annual or monthly billing'],
+    },
+    {
+      rate: '0.50%',
+      range: '$250K+',
+      description: 'Premium holdings',
+      example: '$500K stored = $2,500/yr',
+      popular: false,
+      features: ['Segregated storage', 'Digital vault access', 'Annual or monthly billing'],
+    },
   ];
 
   const tradingMargins = [
@@ -76,15 +95,15 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
   const faqs = [
     {
       question: 'Is there a minimum purchase?',
-      answer: 'No minimum for trading. Vault storage minimum is Tier 1 ($100/year).',
+      answer: 'No minimum for trading. Vault storage has a $100/year minimum fee regardless of stored value.',
     },
     {
       question: 'How is the 3.5% credit card fee calculated?',
       answer: 'Applied to the total order amount (or deposit amount for deposit orders).',
     },
     {
-      question: 'Can I change vault tiers?',
-      answer: 'Tiers auto-adjust as your stored value increases. You only pay for what you store.',
+      question: 'How does vault storage pricing work?',
+      answer: 'You pay a percentage of your stored portfolio value annually. The rate decreases as your holdings grow: 1% up to $50K, 0.75% for $50K\u2013$250K, and 0.50% above $250K. A $100/year minimum applies to all accounts.',
     },
     {
       question: 'Are there withdrawal fees?',
@@ -100,7 +119,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
     <>
       <SEOHead
         title="Pricing"
-        description="Transparent pricing for precious metals trading and vault storage at Alex Lexington. No hidden fees. Gold margins 3-3.5%, silver 6-10%. Vault storage from $100/year."
+        description="Transparent pricing for precious metals trading and vault storage at Alex Lexington. No hidden fees. Gold margins 3-3.5%, silver 6-10%. Segregated vault storage from 0.50% annually."
         path="pricing"
       />
 
@@ -133,7 +152,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
             {vaultTiers.map((tier, i) => (
               <div
                 key={i}
@@ -151,10 +170,14 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
                   </div>
                 )}
                 <div className="text-center">
-                  <p className="font-serif text-3xl font-light text-white">{tier.label}</p>
-                  <p className="text-sm text-gray-400 mt-1">{tier.period}</p>
+                  <p className="font-serif text-4xl font-light text-white">{tier.rate}</p>
+                  <p className="text-sm text-gold-500 font-medium mt-1">annually</p>
                   <div className="w-8 h-px bg-gold-500/30 mx-auto my-4" />
-                  <p className="text-sm text-gray-300 font-medium">{tier.description}</p>
+                  <p className="text-base text-white font-medium">{tier.range}</p>
+                  <p className="text-sm text-gray-400 mt-1">{tier.description}</p>
+                  <div className="mt-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5">
+                    <p className="text-xs text-gray-400">{tier.example}</p>
+                  </div>
                   <ul className="mt-4 space-y-2">
                     {tier.features.map((feature, fi) => (
                       <li key={fi} className="flex items-center justify-center gap-2 text-xs text-gray-400">
@@ -176,8 +199,8 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p>
-                <span className="text-gray-300 font-medium">$50 one-time initiation fee.</span>{' '}
-                $25 processing fee for externally shipped metal (waived when purchased through Alex Lexington). Tiers auto-progress as portfolio value increases.
+                <span className="text-gray-300 font-medium">$100/year minimum regardless of stored value.</span>{' '}
+                $50 one-time initiation fee. $25 processing fee for externally shipped metal (waived when purchased through Alex Lexington). Rate tier adjusts automatically as portfolio value changes.
               </p>
             </div>
           </div>

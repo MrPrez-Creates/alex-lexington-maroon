@@ -12,7 +12,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
     <>
       <SEOHead
         title="Vault Storage — SECURE"
-        description="Segregated precious metals vault storage by Alex Lexington. Your metals, your bag, your bin. Starting at $100/year. Digital access through the Maroon app."
+        description="Segregated precious metals vault storage by Alex Lexington. Your metals, your bag, your bin. Value-based pricing from 0.50% annually. Digital access through the Maroon app."
         path="services-secure"
       />
 
@@ -32,7 +32,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
             <span className="italic" style={{ color: '#D4B77A' }}>Your Vault</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Banks are closing safe deposit boxes across America. Alex Lexington fills the gap with purpose-built precious metals storage — segregated, insured, and accessible through the Maroon app. Starting at $100/year.
+            Banks are closing safe deposit boxes across America. Alex Lexington fills the gap with purpose-built precious metals storage — segregated, insured, and accessible through the Maroon app. Value-based pricing from 0.50% annually.
           </p>
         </div>
       </section>
@@ -99,7 +99,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
               {
                 step: 1,
                 title: 'Open Your Account',
-                desc: 'One-time $50 initiation fee. Select the storage tier that matches your holdings. Your vault account is active immediately — ready to receive metals.',
+                desc: 'One-time $50 initiation fee. Your storage rate is based on the value of your holdings. Your vault account is active immediately — ready to receive metals.',
                 icon: (
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
@@ -193,47 +193,56 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
         </div>
       </section>
 
-      {/* Storage Tiers */}
+      {/* Storage Pricing */}
       <section className="py-20 sm:py-24 border-t border-white/5">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500 uppercase">Storage Tiers</span>
+            <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500 uppercase">Storage Pricing</span>
             <h2 className="font-serif text-3xl sm:text-4xl font-light text-white mt-3">
-              Choose Your <span className="italic" style={{ color: '#D4B77A' }}>Tier</span>
+              Simple, <span className="italic" style={{ color: '#D4B77A' }}>Value-Based</span> Pricing
             </h2>
             <p className="text-gray-400 mt-4 max-w-xl mx-auto">
-              Five tiers based on the value of metals stored. Your tier auto-progresses as your holdings grow. Annual billing by default — no surprises.
+              Pay a percentage of your stored portfolio value. The more you store, the lower your rate. Annual billing by default — no surprises.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
             {[
-              { tier: 1, price: 100, monthly: '~$8.33' },
-              { tier: 2, price: 250, monthly: '~$20.83' },
-              { tier: 3, price: 500, monthly: '~$41.67' },
-              { tier: 4, price: 1000, monthly: '~$83.33' },
-              { tier: 5, price: 1800, monthly: '~$150.00' },
-            ].map((item) => (
+              { rate: '1.0%', range: 'Up to $50K', example: '$10K stored = $100/yr', desc: 'Starting & growing collections' },
+              { rate: '0.75%', range: '$50K – $250K', example: '$100K stored = $750/yr', desc: 'Established investors', popular: true },
+              { rate: '0.50%', range: '$250K+', example: '$500K stored = $2,500/yr', desc: 'Premium holdings' },
+            ].map((item, i) => (
               <div
-                key={item.tier}
-                className="group p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-gold-500/20 hover:bg-white/[0.04] transition-all duration-300 text-center"
+                key={i}
+                className={`relative group p-8 rounded-2xl border transition-all duration-300 text-center ${
+                  item.popular
+                    ? 'border-gold-500/40 bg-gold-500/[0.06] shadow-lg shadow-gold-500/5'
+                    : 'border-white/5 bg-white/[0.02] hover:border-gold-500/20 hover:bg-white/[0.04]'
+                }`}
               >
-                <span className="text-[10px] font-bold tracking-[0.25em] text-gold-500/50 uppercase">Tier {item.tier}</span>
-                <div className="mt-3 mb-1">
-                  <span className="font-serif text-3xl font-light text-white">${item.price.toLocaleString()}</span>
-                </div>
-                <span className="text-xs text-gray-500">per year</span>
-                <div className="mt-3 pt-3 border-t border-white/5">
-                  <span className="text-xs text-gray-400">{item.monthly}/mo if monthly</span>
+                {item.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="px-3 py-1 text-[10px] font-bold tracking-[0.15em] uppercase rounded-full" style={{ background: 'linear-gradient(135deg, #BD9A5F 0%, #D4B77A 100%)', color: '#0A2240' }}>
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <span className="font-serif text-4xl font-light text-white">{item.rate}</span>
+                <p className="text-sm text-gold-500 font-medium mt-1">annually</p>
+                <div className="w-8 h-px bg-gold-500/30 mx-auto my-4" />
+                <p className="text-base text-white font-medium">{item.range}</p>
+                <p className="text-sm text-gray-400 mt-1">{item.desc}</p>
+                <div className="mt-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5">
+                  <p className="text-xs text-gray-400">{item.example}</p>
                 </div>
               </div>
             ))}
           </div>
           <div className="mt-8 text-center space-y-2">
             <p className="text-sm text-gray-400">
-              <span className="text-white font-medium">$50 one-time initiation fee</span> at account opening.
+              <span className="text-white font-medium">$100/year minimum</span> regardless of stored value. <span className="text-white font-medium">$50 one-time initiation fee</span> at account opening.
             </p>
             <p className="text-sm text-gray-400">
-              Annual billing default. Monthly billing available at a slight premium. Tier auto-progresses as your stored value increases.
+              Annual billing default. Monthly billing available. Rate tier adjusts automatically as your stored portfolio value changes.
             </p>
           </div>
         </div>
@@ -428,7 +437,7 @@ const ServicesSecurePage: React.FC<ServicesSecurePageProps> = ({ onNavigate, onS
             Open Your <span className="italic" style={{ color: '#D4B77A' }}>Vault Account</span>
           </h2>
           <p className="text-gray-400 mb-8 max-w-lg mx-auto">
-            Segregated vault storage starting at $100/year. Your metals, your bag, your bin. Accessible 24/7 through the Maroon app.
+            Segregated vault storage from 0.50% annually. Your metals, your bag, your bin. Accessible 24/7 through the Maroon app.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button

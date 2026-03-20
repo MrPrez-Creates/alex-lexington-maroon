@@ -68,7 +68,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ onNavigate, onSignIn }) => {
     },
     {
       title: 'Vault Storage',
-      desc: 'Segregated, insured storage for your precious metals. From $100/year.',
+      desc: 'Segregated, insured storage for your precious metals. From 0.50% annually.',
       tag: 'SECURE',
       view: 'services-secure' as ViewState,
       icon: (
