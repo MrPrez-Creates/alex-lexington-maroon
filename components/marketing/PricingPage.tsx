@@ -200,7 +200,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate, onSignIn }) => {
               </svg>
               <p>
                 <span className="text-gray-300 font-medium">$100/year minimum regardless of stored value.</span>{' '}
-                $50 one-time initiation fee. $25 processing fee for externally shipped metal (waived when purchased through Alex Lexington). Rate tier adjusts automatically as portfolio value changes.
+                $50 one-time initiation fee. $25 processing fee for externally shipped metal (waived when purchased through Alex Lexington). Rate adjusts automatically as portfolio value changes.
               </p>
             </div>
           </div>
